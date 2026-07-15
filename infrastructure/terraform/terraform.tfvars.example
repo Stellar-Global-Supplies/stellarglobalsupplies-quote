@@ -2,14 +2,14 @@
 # DO NOT commit this file — add to .gitignore
 # Fill in your actual values and set as GitHub Secrets for CI/CD
 
-aws_region      = "us-east-1"
-environment     = "prod"
+aws_region      = "ap-south-1"
+environment     = "production"
 
 # From your Route53 console — the zone ID for stellarglobalsupplies.com
-route53_zone_id = "Z0921230160AJKJGRF8J2"
+route53_zone_id = "Z0XXXXXXXXXXXXXXXXX"
 
 # Your existing *.stellarglobalsupplies.com cert ARN (must be in us-east-1 for CloudFront)
-certificate_arn = "arn:aws:acm:us-east-1:471112840461:certificate/27fa15e5-f9f8-4b5d-a7b2-a6ee4c212ed7"
+certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 
 # Supabase — from https://supabase.com/dashboard/project/<your-project>/settings/api
 supabase_url      = "https://your-project-id.supabase.co"
@@ -19,3 +19,7 @@ supabase_anon_key = "eyJhbGciOi..."
 gmail_client_id     = "xxxxxxxxxxxx.apps.googleusercontent.com"
 gmail_client_secret = "GOCSPX-xxxxxxxxxxxxxxxxx"
 gmail_refresh_token = "1//xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# Supabase service role key — from Settings > API > service_role (secret)
+# Used by Lambda only — NEVER put this in frontend .env
+supabase_service_role_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIn0.XXXXXXX"

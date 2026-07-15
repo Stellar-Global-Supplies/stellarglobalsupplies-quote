@@ -97,6 +97,7 @@ jobs:
             -var="gmail_client_id=${{ secrets.GMAIL_CLIENT_ID }}" \
             -var="gmail_client_secret=${{ secrets.GMAIL_CLIENT_SECRET }}" \
             -var="gmail_refresh_token=${{ secrets.GMAIL_REFRESH_TOKEN }}" \
+            -var="supabase_service_role_key=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
             -out=tfplan -no-color 2>&1 | tee plan.txt
 
       - name: Comment plan on PR
@@ -157,6 +158,7 @@ jobs:
             -var="supabase_anon_key=${{ secrets.SUPABASE_ANON_KEY }}" \
             -var="gmail_client_id=${{ secrets.GMAIL_CLIENT_ID }}" \
             -var="gmail_client_secret=${{ secrets.GMAIL_CLIENT_SECRET }}" \
+            -var="supabase_service_role_key=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
             -var="gmail_refresh_token=${{ secrets.GMAIL_REFRESH_TOKEN }}"
 
       - name: Capture Terraform outputs

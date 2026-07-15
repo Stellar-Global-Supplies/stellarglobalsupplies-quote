@@ -402,3 +402,11 @@ resource "aws_lambda_permission" "get_skus" {
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*"
 }
+
+# Service role key — used by Lambda only, never passed to browser
+resource "aws_ssm_parameter" "supabase_service_role_key" {
+  name  = "/sgs-quote/supabase_service_role_key"
+  type  = "SecureString"
+  value = var.supabase_service_role_key
+  tags  = local.tags
+}

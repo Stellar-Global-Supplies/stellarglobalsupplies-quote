@@ -51,3 +51,9 @@ variable "gmail_refresh_token" {
   type        = string
   sensitive   = true
 }
+
+variable "supabase_service_role_key" {
+  description = "Supabase service role key — server-side only, bypasses RLS. NEVER expose to frontend."
+  type        = string
+  sensitive   = true
+}
