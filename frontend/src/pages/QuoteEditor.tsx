@@ -107,7 +107,7 @@ export default function QuoteEditor() {
         setCustomerId(c.id)
       }
       setLoading(false)
-    }).catch(err => {
+    }).catch(_err => {
       toast.error('Failed to load quote')
       setLoading(false)
     })
