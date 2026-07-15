@@ -145,7 +145,7 @@ function Num({ value, onChange, step = '0.01', min = '0', max, className = '' }:
 }) {
   return (
     <input
-      type="number" min={min} step={step} value={value}
+      type="number" min={min} max={max} step={step} value={value}
       onChange={e => onChange(parseFloat(e.target.value) || 0)}
       className={`w-full px-2 py-1.5 border border-transparent hover:border-gray-200 focus:border-brand-500 focus:ring-1 focus:ring-brand-500/20 rounded-md outline-none text-sm text-right transition ${className}`}
     />
