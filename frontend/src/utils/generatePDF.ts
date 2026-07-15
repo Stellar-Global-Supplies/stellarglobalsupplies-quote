@@ -4,190 +4,193 @@ import { Quote, Customer } from '@/lib/supabase'
 import { LOGO_BASE64 } from '@/utils/logoBase64'
 
 const SGS = {
-  name: 'STELLAR GLOBAL SUPPLIES',
-  address: 'Survey No. 169, Gala No. - 3, Pandurang Industrial Complex,',
-  address2: 'Rupeenagar, Talawade, Pune - 411062. MAHARASHTRA (INDIA)',
-  mobile: 'Mob. : 9637655556',
-  email: 'Email : stellarglobalsupplies@gmail.com',
-  stateCode: 'State Code : 27',
-  gst: 'GST No. : 27CLMPG9051Q1ZA',
-  bank: 'IDFC First Bank',
-  branch: 'Pimpri',
-  account: '75618555569',
-  ifsc: 'IDFB0041356',
+  name:        'STELLAR GLOBAL SUPPLIES',
+  address:     'Survey No. 169, Gala No. - 3, Pandurang Industrial Complex,',
+  address2:    'Rupeenagar, Talawade, Pune - 411062. MAHARASHTRA (INDIA)',
+  mobile:      'Mob. : 9637655556',
+  email:       'Email : stellarglobalsupplies@gmail.com',
+  stateCode:   'State Code : 27',
+  gst:         'GST No. : 27CLMPG9051Q1ZA',
+  bank:        'IDFC First Bank',
+  branch:      'Pimpri',
+  account:     '75618555569',
+  ifsc:        'IDFB0041356',
   accountType: 'Current Account',
 }
 
-// Brand colors (RGB)
-const GREEN: [number, number, number] = [26, 92, 58]
-const GOLD:  [number, number, number] = [201, 168, 76]
-const WHITE: [number, number, number] = [255, 255, 255]
+// Brand colors
+const GREEN: [number,number,number] = [26, 92, 58]
+const GOLD:  [number,number,number] = [201, 168, 76]
+const WHITE: [number,number,number] = [255, 255, 255]
+
+// jsPDF's built-in helvetica doesn't support ₹ glyph — use "Rs." prefix instead
+// This avoids the superscript-1 rendering bug seen in the PDF
+function rs(amount: number): string {
+  return `Rs. ${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
 
 function toWords(amount: number): string {
-  const a = [
-    '', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT',
-    'NINE', 'TEN', 'ELEVEN', 'TWELVE', 'THIRTEEN', 'FOURTEEN', 'FIFTEEN',
-    'SIXTEEN', 'SEVENTEEN', 'EIGHTEEN', 'NINETEEN',
-  ]
-  const b = ['', '', 'TWENTY', 'THIRTY', 'FORTY', 'FIFTY', 'SIXTY', 'SEVENTY', 'EIGHTY', 'NINETY']
+  const a = ['','ONE','TWO','THREE','FOUR','FIVE','SIX','SEVEN','EIGHT','NINE',
+    'TEN','ELEVEN','TWELVE','THIRTEEN','FOURTEEN','FIFTEEN','SIXTEEN','SEVENTEEN','EIGHTEEN','NINETEEN']
+  const b = ['','','TWENTY','THIRTY','FORTY','FIFTY','SIXTY','SEVENTY','EIGHTY','NINETY']
 
   function inWords(n: number): string {
-    if (n < 20) return a[n]
-    if (n < 100) return b[Math.floor(n / 10)] + (n % 10 ? ' ' + a[n % 10] : '')
-    if (n < 1000) return a[Math.floor(n / 100)] + ' HUNDRED' + (n % 100 ? ' ' + inWords(n % 100) : '')
-    if (n < 100000) return inWords(Math.floor(n / 1000)) + ' THOUSAND' + (n % 1000 ? ' ' + inWords(n % 1000) : '')
-    if (n < 10000000) return inWords(Math.floor(n / 100000)) + ' LAKH' + (n % 100000 ? ' ' + inWords(n % 100000) : '')
-    return inWords(Math.floor(n / 10000000)) + ' CRORE' + (n % 10000000 ? ' ' + inWords(n % 10000000) : '')
+    if (n < 20)       return a[n]
+    if (n < 100)      return b[Math.floor(n/10)] + (n%10 ? ' '+a[n%10] : '')
+    if (n < 1000)     return a[Math.floor(n/100)] + ' HUNDRED' + (n%100 ? ' '+inWords(n%100) : '')
+    if (n < 100000)   return inWords(Math.floor(n/1000)) + ' THOUSAND' + (n%1000 ? ' '+inWords(n%1000) : '')
+    if (n < 10000000) return inWords(Math.floor(n/100000)) + ' LAKH' + (n%100000 ? ' '+inWords(n%100000) : '')
+    return inWords(Math.floor(n/10000000)) + ' CRORE' + (n%10000000 ? ' '+inWords(n%10000000) : '')
   }
 
   const rupees = Math.floor(amount)
-  const paise = Math.round((amount - rupees) * 100)
-  let words = 'RUPEES ' + inWords(rupees)
-  if (paise > 0) words += ' AND ' + inWords(paise) + ' PAISE'
-  return words + ' ONLY'
+  const paise  = Math.round((amount - rupees) * 100)
+  let w = 'RUPEES ' + inWords(rupees)
+  if (paise > 0) w += ' AND ' + inWords(paise) + ' PAISE'
+  return w + ' ONLY'
+}
+
+function fmtDate(d: string): string {
+  if (!d) return ''
+  const [y, m, day] = d.split('-')
+  return `${day}/${m}/${y}`
 }
 
 export function generateQuotePDF(quote: Quote, customer: Customer): string {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-  const W = 210
-  const margin = 10
+  const W   = 210
+  const M   = 10   // margin
 
-  // ── TITLE BAR (green background) ──────────────────────────────────────────
+  // ── Title bar ───────────────────────────────────────────────────────────────
   doc.setFillColor(...GREEN)
-  doc.rect(0, 0, W, 14, 'F')
+  doc.rect(0, 0, W, 13, 'F')
   doc.setTextColor(...WHITE)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(13)
-  doc.text('QUOTATION', W / 2, 9.5, { align: 'center' })
+  doc.text('QUOTATION', W / 2, 9, { align: 'center' })
 
-  // ── HEADER: LOGO + COMPANY INFO ────────────────────────────────────────────
-  // Logo (left side of header)
+  // ── Header: logo + company info ─────────────────────────────────────────────
   try {
-    // Logo dimensions: 400x144 → scale to fit ~45mm wide, ~16mm tall
-    doc.addImage(LOGO_BASE64, 'PNG', margin, 16, 45, 16)
-  } catch (_) {
-    // fallback: text logo
+    doc.addImage(LOGO_BASE64, 'PNG', M, 15, 42, 15)
+  } catch {
     doc.setTextColor(...GREEN)
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(14)
-    doc.text('STELLAR GLOBAL SUPPLIES', margin, 26)
+    doc.setFontSize(11)
+    doc.text('STELLAR GLOBAL SUPPLIES', M, 24)
   }
 
-  // Company details (right side of header)
-  doc.setTextColor(60, 60, 60)
+  // Company details right-aligned
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(7.5)
-  const infoX = W - margin
-  doc.text(SGS.address,  infoX, 19, { align: 'right' })
-  doc.text(SGS.address2, infoX, 23, { align: 'right' })
-  doc.text(SGS.mobile,   infoX, 27, { align: 'right' })
-  doc.text(SGS.email,    infoX, 31, { align: 'right' })
-  doc.setTextColor(...GREEN)
+  doc.setTextColor(50, 50, 50)
+  const rx = W - M
+  doc.text(SGS.address,  rx, 17, { align: 'right' })
+  doc.text(SGS.address2, rx, 21, { align: 'right' })
+  doc.text(SGS.mobile,   rx, 25, { align: 'right' })
+  doc.text(SGS.email,    rx, 29, { align: 'right' })
   doc.setFont('helvetica', 'bold')
+  doc.setTextColor(...GREEN)
   doc.setFontSize(7)
-  doc.text(`${SGS.stateCode}   |   ${SGS.gst}`, infoX, 35, { align: 'right' })
+  doc.text(`${SGS.stateCode}   |   ${SGS.gst}`, rx, 33, { align: 'right' })
 
-  // Gold divider line under header
+  // Gold rule under header
   doc.setDrawColor(...GOLD)
-  doc.setLineWidth(0.8)
-  doc.line(margin, 38, W - margin, 38)
+  doc.setLineWidth(0.7)
+  doc.line(M, 35, W - M, 35)
 
-  // ── CUSTOMER + QUOTATION INFO (two-column) ─────────────────────────────────
-  const midX = W / 2
+  // ── Customer + Quote info band ───────────────────────────────────────────────
+  const midX    = W / 2
+  const bandTop = 36
+  const bandH   = 52
 
-  // Light green bg for info band
-  doc.setFillColor(240, 248, 243)
-  doc.rect(margin, 39, W - 2 * margin, 52, 'F')
+  doc.setFillColor(243, 249, 245)
+  doc.rect(M, bandTop, W - 2*M, bandH, 'F')
+  doc.line(midX, bandTop, midX, bandTop + bandH)
 
-  // Vertical divider
-  doc.setDrawColor(200, 220, 210)
-  doc.setLineWidth(0.3)
-  doc.line(midX, 39, midX, 91)
-
-  // Left: Customer heading
+  // Left heading
   doc.setFillColor(...GREEN)
-  doc.rect(margin, 39, midX - margin, 7, 'F')
+  doc.rect(M, bandTop, midX - M, 7, 'F')
   doc.setTextColor(...WHITE)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(8)
-  doc.text('CUSTOMER DETAILS', margin + 3, 44)
+  doc.text('CUSTOMER DETAILS', M + 3, bandTop + 5)
 
-  // Left: Customer data
-  doc.setTextColor(30, 45, 37)
+  // Customer data
+  let cy = bandTop + 13
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(9.5)
-  doc.text(customer.company_name, margin + 3, 52)
+  doc.setTextColor(20, 40, 30)
+  doc.text(customer.company_name, M + 3, cy); cy += 5
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(7.5)
   doc.setTextColor(60, 80, 70)
-  const addrLines = doc.splitTextToSize(customer.address, 88)
-  let y = 57
-  addrLines.forEach((line: string) => { doc.text(line, margin + 3, y); y += 4 })
-  if (customer.city)     { doc.text(customer.city, margin + 3, y); y += 4 }
-  if (customer.pin_code) { doc.text(customer.pin_code, margin + 3, y); y += 4 }
-  doc.text(customer.state, margin + 3, y); y += 4
+  const addrLines = doc.splitTextToSize(customer.address, 86)
+  addrLines.forEach((l: string) => { doc.text(l, M + 3, cy); cy += 4 })
+  if (customer.city)     { doc.text(customer.city, M + 3, cy); cy += 4 }
+  if (customer.pin_code) { doc.text(customer.pin_code, M + 3, cy); cy += 4 }
+  if (customer.state)    { doc.text(customer.state, M + 3, cy); cy += 4 }
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(...GREEN)
-  doc.text(`GST: ${customer.gst_number}`, margin + 3, y)
+  doc.setFontSize(7.5)
+  doc.text(`GST: ${customer.gst_number.startsWith('IMPORT_') ? '-' : customer.gst_number}`, M + 3, cy)
 
-  // Right: Quote heading
+  // Right heading
   doc.setFillColor(...GREEN)
-  doc.rect(midX, 39, W - margin - midX, 7, 'F')
+  doc.rect(midX, bandTop, W - M - midX, 7, 'F')
   doc.setTextColor(...WHITE)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(8)
-  doc.text('QUOTATION DETAILS', midX + 3, 44)
+  doc.text('QUOTATION DETAILS', midX + 3, bandTop + 5)
 
-  // Right: Quote data
-  const labelX = midX + 3
-  const valX   = W - margin - 3
-  let qy = 52
+  // Quote data rows
+  const qLabel = midX + 3
+  const qValue = W - M - 3
+  let qy = bandTop + 13
 
-  const qRow = (label: string, val: string) => {
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(7.5)
-    doc.setTextColor(80, 100, 90)
-    doc.text(label, labelX, qy)
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(30, 45, 37)
-    doc.text(val, valX, qy, { align: 'right' })
+  const qRow = (lbl: string, val: string) => {
+    doc.setFont('helvetica', 'bold');   doc.setFontSize(7.5); doc.setTextColor(80, 110, 90)
+    doc.text(lbl, qLabel, qy)
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(20, 40, 30)
+    doc.text(val, qValue, qy, { align: 'right' })
     qy += 6
   }
-
   qRow('Quotation No. :', quote.quote_number)
-  qRow('Date :', formatDate(quote.date))
-  qRow('Expiry Date :', formatDate(quote.expiry_date))
+  qRow('Date :', fmtDate(quote.date))
+  qRow('Expiry Date :', fmtDate(quote.expiry_date))
   if (customer.contact_number) qRow('Contact :', customer.contact_number)
 
-  // Gold divider before table
+  // Gold rule before table
+  const tableTop = bandTop + bandH + 1
   doc.setDrawColor(...GOLD)
-  doc.setLineWidth(0.6)
-  doc.line(margin, 92, W - margin, 92)
+  doc.setLineWidth(0.5)
+  doc.line(M, tableTop, W - M, tableTop)
 
-  // ── ITEMS TABLE ────────────────────────────────────────────────────────────
+  // ── Items table ──────────────────────────────────────────────────────────────
   const tableBody = quote.items.map((item, idx) => [
-    idx + 1,
+    String(idx + 1),
     item.description,
-    item.hsn_sac,
-    `${item.quantity.toFixed(2)} ${item.unit}`,
-    `₹${item.rate.toFixed(2)}`,
+    item.hsn_sac || '',
+    `${Number(item.quantity).toFixed(2)} ${item.unit}`,
+    rs(Number(item.rate)),
     `${item.discount}%`,
-    `₹${item.total.toFixed(2)}`,
+    rs(Number(item.total)),
   ])
 
   autoTable(doc, {
-    startY: 92,
+    startY: tableTop,
     head: [['S.N.', 'Item Name / Description', 'HSN/SAC', 'Quantity', 'Rate', 'Dis%', 'Total']],
     body: tableBody,
-    margin: { left: margin, right: margin },
-    tableWidth: W - 2 * margin,
+    margin: { left: M, right: M },
+    tableWidth: W - 2 * M,
     styles: {
       fontSize: 8,
       cellPadding: 2.5,
-      lineColor: [220, 235, 228],
+      lineColor: [215, 230, 220],
       lineWidth: 0.2,
-      textColor: [30, 45, 37],
+      textColor: [25, 45, 35],
+      font: 'helvetica',
+      overflow: 'linebreak',
     },
     headStyles: {
       fillColor: GREEN,
@@ -196,122 +199,113 @@ export function generateQuotePDF(quote: Quote, customer: Customer): string {
       halign: 'center',
       fontSize: 7.5,
     },
-    alternateRowStyles: {
-      fillColor: [248, 253, 250],
-    },
+    alternateRowStyles: { fillColor: [248, 253, 250] },
     columnStyles: {
       0: { halign: 'center', cellWidth: 10 },
-      1: { cellWidth: 65 },
+      1: { cellWidth: 60 },              // description — widest
       2: { halign: 'center', cellWidth: 22 },
       3: { halign: 'center', cellWidth: 24 },
-      4: { halign: 'right', cellWidth: 20 },
+      4: { halign: 'right',  cellWidth: 24 },
       5: { halign: 'center', cellWidth: 12 },
-      6: { halign: 'right', cellWidth: 20 },
+      6: { halign: 'right',  cellWidth: 24 },  // wider total column
     },
     theme: 'grid',
   })
 
   const afterTable = (doc as any).lastAutoTable.finalY || 200
 
-  // ── BANK + TOTALS ──────────────────────────────────────────────────────────
-  const totalsStartY = afterTable + 4
-  const totalsX = midX + 2
+  // ── Bank + Totals ────────────────────────────────────────────────────────────
+  const secTop = afterTable + 3
+  const secH   = 40
 
-  // Section backgrounds
-  doc.setFillColor(240, 248, 243)
-  doc.rect(margin, totalsStartY, midX - margin, 38, 'F')
-  doc.setFillColor(248, 253, 250)
-  doc.rect(midX, totalsStartY, W - margin - midX, 38, 'F')
+  doc.setFillColor(243, 249, 245)
+  doc.rect(M, secTop, midX - M, secH, 'F')
+  doc.setFillColor(249, 253, 251)
+  doc.rect(midX, secTop, W - M - midX, secH, 'F')
+  doc.setDrawColor(200, 220, 210)
+  doc.setLineWidth(0.2)
+  doc.line(midX, secTop, midX, secTop + secH)
 
-  // Bank details
+  // Bank heading
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(7.5)
   doc.setTextColor(...GREEN)
-  doc.text('BANK DETAILS', margin + 3, totalsStartY + 6)
-
+  doc.text('BANK DETAILS', M + 3, secTop + 6)
   doc.setDrawColor(...GOLD)
-  doc.setLineWidth(0.4)
-  doc.line(margin + 3, totalsStartY + 7.5, midX - 5, totalsStartY + 7.5)
+  doc.setLineWidth(0.3)
+  doc.line(M + 3, secTop + 7.5, midX - 5, secTop + 7.5)
 
-  doc.setFont('helvetica', 'normal')
-  doc.setTextColor(50, 70, 60)
-  doc.setFontSize(7.5)
-  let by = totalsStartY + 12
-  const bRow = (label: string, val: string) => {
-    doc.setFont('helvetica', 'bold'); doc.text(`${label}:`, margin + 3, by)
-    doc.setFont('helvetica', 'normal'); doc.text(val, margin + 28, by)
+  // Bank rows
+  let by = secTop + 13
+  const bRow = (lbl: string, val: string) => {
+    doc.setFont('helvetica', 'bold');   doc.setFontSize(7.5); doc.setTextColor(50, 80, 60)
+    doc.text(`${lbl}:`, M + 3, by)
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(25, 45, 35)
+    doc.text(val, M + 24, by)
     by += 5
   }
-  bRow('Bank', SGS.bank)
+  bRow('Bank',   SGS.bank)
   bRow('Branch', SGS.branch)
   bRow('A/C No', `${SGS.accountType} - ${SGS.account}`)
-  bRow('IFSC', SGS.ifsc)
+  bRow('IFSC',   SGS.ifsc)
 
   // Totals
-  let ty = totalsStartY + 5
-  const lineH = 6.5
+  let ty = secTop + 5
+  const lh = 6.5
+  const tv = W - M - 3
 
-  const tRow = (label: string, value: string, highlight = false) => {
-    if (highlight) {
+  const tRow = (lbl: string, val: string, grand = false) => {
+    if (grand) {
       doc.setFillColor(...GREEN)
-      doc.rect(midX, ty - 4.5, W - margin - midX, lineH + 0.5, 'F')
+      doc.rect(midX, ty - 4.5, W - M - midX, lh + 0.5, 'F')
       doc.setTextColor(...WHITE)
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(9)
     } else {
-      doc.setTextColor(60, 80, 70)
-      doc.setFont('helvetica', highlight ? 'bold' : 'normal')
+      doc.setTextColor(60, 85, 70)
+      doc.setFont('helvetica', 'normal')
       doc.setFontSize(8)
     }
-    doc.text(label, totalsX + 2, ty)
-    doc.text(value, W - margin - 3, ty, { align: 'right' })
-    ty += lineH
+    doc.text(lbl, midX + 3, ty)
+    doc.text(val, tv, ty, { align: 'right' })
+    ty += lh
   }
 
-  tRow('Sub Total :', `₹${quote.sub_total.toFixed(2)}`)
-  tRow(`IGST ${quote.igst_rate}% :`, `₹${quote.igst_amount.toFixed(2)}`)
-  tRow(`CGST ${quote.cgst_rate}% :`, `₹${quote.cgst_amount.toFixed(2)}`)
-  tRow(`SGST ${quote.sgst_rate}% :`, `₹${quote.sgst_amount.toFixed(2)}`)
-  tRow('Grand Total :', `₹${quote.grand_total.toFixed(2)}`, true)
+  tRow('Sub Total :', rs(quote.sub_total))
+  tRow(`IGST ${quote.igst_rate}% :`, rs(quote.igst_amount))
+  tRow(`CGST ${quote.cgst_rate}% :`, rs(quote.cgst_amount))
+  tRow(`SGST ${quote.sgst_rate}% :`, rs(quote.sgst_amount))
+  tRow('Grand Total :', rs(quote.grand_total), true)
 
-  // Vertical divider between bank + totals
-  doc.setDrawColor(200, 220, 210)
-  doc.setLineWidth(0.3)
-  doc.line(midX, totalsStartY, midX, totalsStartY + 38)
-
-  // ── AMOUNT IN WORDS ────────────────────────────────────────────────────────
-  const wordsY = totalsStartY + 40
+  // ── Amount in words ──────────────────────────────────────────────────────────
+  const wY = secTop + secH + 2
   doc.setFillColor(...GREEN)
-  doc.rect(margin, wordsY, W - 2 * margin, 8, 'F')
+  doc.rect(M, wY, W - 2*M, 9, 'F')
   doc.setTextColor(...GOLD)
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(8)
-  const words = toWords(quote.grand_total)
-  doc.text(`Amount in Words: ${words}`, margin + 3, wordsY + 5.5)
+  doc.setFontSize(7.5)
+  const wordsText = `Amount in Words: ${toWords(quote.grand_total)}`
+  const wordsLines = doc.splitTextToSize(wordsText, W - 2*M - 6)
+  doc.text(wordsLines, M + 3, wY + 5.5)
 
-  // ── NOTES ─────────────────────────────────────────────────────────────────
-  let sigY = wordsY + 14
-  if (quote.notes) {
+  // Notes
+  let sigY = wY + 14
+  if (quote.notes?.trim()) {
     doc.setFillColor(250, 253, 251)
-    doc.rect(margin, wordsY + 10, W - 2 * margin, 10, 'F')
     doc.setDrawColor(200, 220, 210)
     doc.setLineWidth(0.2)
-    doc.rect(margin, wordsY + 10, W - 2 * margin, 10)
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(7.5)
-    doc.setTextColor(...GREEN)
-    doc.text('Notes:', margin + 3, wordsY + 16)
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(60, 80, 70)
-    const noteLines = doc.splitTextToSize(quote.notes, W - 2 * margin - 20)
-    doc.text(noteLines, margin + 18, wordsY + 16)
-    sigY = wordsY + 26
+    doc.rect(M, wY + 11, W - 2*M, 10)
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...GREEN)
+    doc.text('Notes:', M + 3, wY + 17)
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(60, 80, 70)
+    doc.text(doc.splitTextToSize(quote.notes, W - 2*M - 22), M + 18, wY + 17)
+    sigY = wY + 27
   }
 
-  // ── SIGNATURES ─────────────────────────────────────────────────────────────
+  // ── Signatures ───────────────────────────────────────────────────────────────
   doc.setDrawColor(...GOLD)
   doc.setLineWidth(0.6)
-  doc.line(margin, sigY, W - margin, sigY)
+  doc.line(M, sigY, W - M, sigY)
   doc.line(midX, sigY, midX, sigY + 18)
 
   doc.setFont('helvetica', 'bold')
@@ -321,19 +315,13 @@ export function generateQuotePDF(quote: Quote, customer: Customer): string {
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(7.5)
-  doc.setTextColor(100, 120, 110)
-  doc.text("Receiver's Signature & Stamp", margin + 3, sigY + 16)
-  doc.text('Authorised Signatory', midX + 3, sigY + 16)
+  doc.setTextColor(110, 130, 120)
+  doc.text("Receiver's Signature & Stamp", M + 3, sigY + 15)
+  doc.text('Authorised Signatory',         midX + 3, sigY + 15)
 
-  // Gold bottom border
+  // Gold bottom strip
   doc.setFillColor(...GOLD)
-  doc.rect(margin, sigY + 19, W - 2 * margin, 1.5, 'F')
+  doc.rect(M, sigY + 19, W - 2*M, 1.5, 'F')
 
   return doc.output('datauristring').split(',')[1]
-}
-
-function formatDate(dateStr: string): string {
-  if (!dateStr) return ''
-  const [y, m, d] = dateStr.split('-')
-  return `${d}/${m}/${y}`
 }
