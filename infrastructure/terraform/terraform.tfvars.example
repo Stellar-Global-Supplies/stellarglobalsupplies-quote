@@ -2,14 +2,14 @@
 # DO NOT commit this file — add to .gitignore
 # Fill in your actual values and set as GitHub Secrets for CI/CD
 
-aws_region      = "ap-south-1"
-environment     = "production"
+aws_region      = "us-east-1"
+environment     = "prod"
 
 # From your Route53 console — the zone ID for stellarglobalsupplies.com
-route53_zone_id = "Z0XXXXXXXXXXXXXXXXX"
+route53_zone_id = "Z0921230160AJKJGRF8J2"
 
 # Your existing *.stellarglobalsupplies.com cert ARN (must be in us-east-1 for CloudFront)
-certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+certificate_arn = "arn:aws:acm:us-east-1:471112840461:certificate/27fa15e5-f9f8-4b5d-a7b2-a6ee4c212ed7"
 
 # Supabase — from https://supabase.com/dashboard/project/<your-project>/settings/api
 supabase_url      = "https://your-project-id.supabase.co"

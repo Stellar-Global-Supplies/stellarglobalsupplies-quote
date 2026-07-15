@@ -48,4 +48,4 @@ logs/
 # Temporary files
 *.tmp
 *.temp
-*.cache
+*.cachebackend/lambda_package.zip
