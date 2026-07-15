@@ -65,6 +65,9 @@ jobs:
     defaults:
       run:
         working-directory: infrastructure/terraform
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -125,6 +128,9 @@ jobs:
     outputs:
       bucket_name: ${{ steps.tf-outputs.outputs.bucket_name }}
       cf_distribution_id: ${{ steps.tf-outputs.outputs.cf_distribution_id }}
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -168,6 +174,9 @@ jobs:
     defaults:
       run:
         working-directory: frontend
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
