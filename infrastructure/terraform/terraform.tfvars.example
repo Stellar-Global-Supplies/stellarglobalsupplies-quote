@@ -1,0 +1,21 @@
+# infrastructure/terraform/terraform.tfvars
+# DO NOT commit this file — add to .gitignore
+# Fill in your actual values and set as GitHub Secrets for CI/CD
+
+aws_region      = "ap-south-1"
+environment     = "production"
+
+# From your Route53 console — the zone ID for stellarglobalsupplies.com
+route53_zone_id = "Z0XXXXXXXXXXXXXXXXX"
+
+# Your existing *.stellarglobalsupplies.com cert ARN (must be in us-east-1 for CloudFront)
+certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
+# Supabase — from https://supabase.com/dashboard/project/<your-project>/settings/api
+supabase_url      = "https://your-project-id.supabase.co"
+supabase_anon_key = "eyJhbGciOi..."
+
+# Google OAuth2 (your existing credentials)
+gmail_client_id     = "xxxxxxxxxxxx.apps.googleusercontent.com"
+gmail_client_secret = "GOCSPX-xxxxxxxxxxxxxxxxx"
+gmail_refresh_token = "1//xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
