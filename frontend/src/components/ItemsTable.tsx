@@ -140,7 +140,7 @@ function DescCell({ value, onSelect, onChange }: {
 }
 
 // ── Number input ─────────────────────────────────────────────────────────────
-function Num({ value, onChange, step = '0.01', min = '0', max, className = '' }: {
+function Num({ value, onChange, step = '0.01', min = '0', max = '100', className = '' }: {
   value: number; onChange: (v: number) => void; step?: string; min?: string; max?: string; className?: string
 }) {
   return (
