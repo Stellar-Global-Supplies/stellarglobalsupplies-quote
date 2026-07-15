@@ -1,13 +1,14 @@
 import { ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { FileText, PlusSquare, LogOut, LayoutDashboard } from 'lucide-react'
+import { FileText, PlusSquare, LogOut, LayoutDashboard, Upload } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import toast from 'react-hot-toast'
 
 const NAV = [
-  { to: '/',        icon: LayoutDashboard, label: 'Dashboard', end: true },
-  { to: '/quotes/new', icon: PlusSquare,   label: 'New Quote',  end: false },
-  { to: '/quotes',  icon: FileText,        label: 'All Quotes', end: false },
+  { to: '/',               icon: LayoutDashboard, label: 'Dashboard',        end: true  },
+  { to: '/quotes/new',     icon: PlusSquare,      label: 'New Quote',        end: false },
+  { to: '/quotes',         icon: FileText,        label: 'All Quotes',       end: false },
+  { to: '/import',         icon: Upload,          label: 'Import Customers', end: false },
 ]
 
 export default function Layout({ children }: { children: ReactNode }) {
@@ -22,17 +23,12 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
-      {/* Sidebar */}
       <aside className="w-52 flex flex-col shrink-0" style={{ background: '#0f1a14' }}>
 
-        {/* Logo */}
         <div className="px-5 py-5 border-b border-white/10">
-          <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="SGS" className="h-8 object-contain" />
-          </div>
+          <img src="/logo.png" alt="SGS" className="h-8 object-contain" />
         </div>
 
-        {/* Nav */}
         <nav className="flex-1 px-3 py-4 space-y-1">
           {NAV.map(({ to, icon: Icon, label, end }) => (
             <NavLink key={to} to={to} end={end}
@@ -50,7 +46,6 @@ export default function Layout({ children }: { children: ReactNode }) {
           ))}
         </nav>
 
-        {/* User */}
         <div className="px-3 py-4 border-t border-white/10">
           <p className="text-xs text-gray-500 px-3 mb-2 truncate">{user?.email}</p>
           <button onClick={handleSignOut}
