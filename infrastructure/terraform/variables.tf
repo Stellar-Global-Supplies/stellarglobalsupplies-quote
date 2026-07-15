@@ -7,7 +7,7 @@ variable "aws_region" {
 variable "environment" {
   description = "Deployment environment"
   type        = string
-  default     = "production"
+  default     = "prod"
 }
 
 variable "route53_zone_id" {
