@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import {
   Plus, Search, FileText, Share2,
@@ -24,6 +25,8 @@ function StatusPill({
 }: { quoteId: string; current: Status; onChange: (s: Status) => void }) {
   const [open, setOpen]     = useState(false)
   const [busy, setBusy]     = useState(false)
+  const [position, setPosition] = useState({ top: 0, left: 0 })
+  const buttonRef = useRef<HTMLButtonElement>(null)
   const opt = STATUS_OPTIONS.find(s => s.value === current) || STATUS_OPTIONS[0]
 
   const pick = async (s: Status) => {
@@ -40,10 +43,22 @@ function StatusPill({
     setOpen(false)
   }
 
+  const toggle = () => {
+    if (!open && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect()
+      setPosition({
+        top: rect.bottom + window.scrollY + 4,
+        left: rect.left + window.scrollX,
+      })
+    }
+    setOpen(o => !o)
+  }
+
   return (
-    <div className="relative inline-block">
+    <>
       <button
-        onClick={() => setOpen(o => !o)}
+        ref={buttonRef}
+        onClick={toggle}
         disabled={busy}
         className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all
           ${opt.bg} ${opt.color} hover:opacity-80 disabled:opacity-50 cursor-pointer`}
@@ -56,11 +71,19 @@ function StatusPill({
         <ChevronDown size={11} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
-      {open && (
+      {open && createPortal(
         <>
           {/* backdrop */}
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute z-50 top-full mt-1 left-0 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden w-36">
+          <div
+            style={{
+              position: 'absolute',
+              top: position.top,
+              left: position.left,
+              zIndex: 50,
+            }}
+            className="bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden w-36"
+          >
             {STATUS_OPTIONS.map(s => (
               <button
                 key={s.value}
@@ -74,9 +97,10 @@ function StatusPill({
               </button>
             ))}
           </div>
-        </>
+        </>,
+        document.body
       )}
-    </div>
+    </>
   )
 }
 
