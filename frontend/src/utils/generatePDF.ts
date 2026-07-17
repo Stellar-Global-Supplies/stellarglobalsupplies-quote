@@ -159,6 +159,7 @@ export function generateQuotePDF(quote: Quote, customer: Customer): string {
   qRow('Date :', fmtDate(quote.date))
   qRow('Expiry Date :', fmtDate(quote.expiry_date))
   if (customer.contact_number) qRow('Contact :', customer.contact_number)
+  qRow('Mobile :', SGS.mobile)
 
   // Gold rule before table
   const tableTop = bandTop + bandH + 1
