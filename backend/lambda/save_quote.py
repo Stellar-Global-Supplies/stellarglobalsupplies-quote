@@ -1,8 +1,9 @@
 """
 Lambda: POST /api/quotes
-Upserts quote_customer then saves the quote in one call.
+- New quote: auto-assigns quote_number, inserts
+- Edit (quote_number already exists): upserts via ON CONFLICT DO UPDATE
 """
-import json, logging
+import json, logging, urllib.parse
 from supabase_client import db_request, cors_response, is_preflight
 from datetime import datetime
 
@@ -28,13 +29,13 @@ def upsert_customer(customer: dict) -> str:
 
 
 def get_next_quote_number() -> str:
-    now = datetime.now()
+    now        = datetime.now()
     year_start = now.year if now.month >= 4 else now.year - 1
-    fy = f"{str(year_start)[2:]}-{str(year_start + 1)[2:]}"
-    import urllib.parse
-    results = db_request(
+    fy         = f"{str(year_start)[2:]}-{str(year_start + 1)[2:]}"
+    prefix     = urllib.parse.quote(f"SGS/{fy}/")
+    results    = db_request(
         "GET", "quotes",
-        params=f"select=quote_number&quote_number=like.{urllib.parse.quote(f'SGS/{fy}/')}*&order=created_at.desc&limit=1"
+        params=f"select=quote_number&quote_number=like.{prefix}*&order=created_at.desc&limit=1",
     )
     if results:
         try:
@@ -63,8 +64,11 @@ def handler(event, context):
 
     try:
         customer_id  = upsert_customer(customer)
-        quote_number = body.get("quote_number") or get_next_quote_number()
         now          = datetime.now()
+
+        # If quote_number supplied it's an edit — keep same number.
+        # If blank it's a new quote — auto-assign.
+        quote_number = (body.get("quote_number") or "").strip() or get_next_quote_number()
 
         quote = {
             "quote_number": quote_number,
@@ -84,7 +88,13 @@ def handler(event, context):
             "status":       body.get("status", "draft"),
         }
 
-        result = db_request("POST", "quotes", quote)
+        # ON CONFLICT (quote_number) DO UPDATE — handles both insert and edit
+        result = db_request(
+            "POST", "quotes", quote,
+            params="on_conflict=quote_number",
+            prefer="return=representation,resolution=merge-duplicates",
+        )
+
         return cors_response(200, {
             "success":     True,
             "quote":       result[0] if result else quote,

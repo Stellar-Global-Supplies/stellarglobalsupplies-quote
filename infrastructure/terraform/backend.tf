@@ -410,3 +410,46 @@ resource "aws_ssm_parameter" "supabase_service_role_key" {
   value = var.supabase_service_role_key
   tags  = local.tags
 }
+
+# ── Delete quote Lambda ───────────────────────────────────────────────────────
+resource "aws_lambda_function" "delete_quote" {
+  function_name    = "${local.app_name}-delete-quote"
+  role             = aws_iam_role.lambda.arn
+  handler          = "delete_quote.handler"
+  runtime          = "python3.12"
+  timeout          = 15
+  memory_size      = 128
+  filename         = data.archive_file.lambda_zip.output_path
+  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+  tags             = local.tags
+  environment {
+    variables = { SSM_PREFIX = "/sgs-quote", ENVIRONMENT = var.environment }
+  }
+}
+
+resource "aws_apigatewayv2_integration" "delete_quote" {
+  api_id                 = aws_apigatewayv2_api.main.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.delete_quote.invoke_arn
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_route" "delete_quote" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "DELETE /api/quotes/{id}"
+  target    = "integrations/${aws_apigatewayv2_integration.delete_quote.id}"
+}
+
+resource "aws_apigatewayv2_route" "update_quote_status" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "PATCH /api/quotes/{id}"
+  target    = "integrations/${aws_apigatewayv2_integration.delete_quote.id}"  # reuses same Lambda
+}
+
+resource "aws_lambda_permission" "delete_quote" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.delete_quote.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*"
+}

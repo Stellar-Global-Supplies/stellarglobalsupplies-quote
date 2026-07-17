@@ -12,10 +12,8 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
 
 export const api = {
   customers: {
-    // Search existing customers for autocomplete in quote form
     list: (search = '') =>
       apiFetch<any[]>(`/api/customers${search ? `?search=${encodeURIComponent(search)}` : ''}`),
-    // Used by import page only — quote form uses api.quotes.save which upserts customer internally
     save: (customer: any) =>
       apiFetch<{ success: boolean; customer: any }>('/api/customers', {
         method: 'POST',
@@ -25,7 +23,6 @@ export const api = {
   quotes: {
     list: (search = '') =>
       apiFetch<any[]>(`/api/quotes${search ? `?search=${encodeURIComponent(search)}` : ''}`),
-    // Payload includes full customer object — Lambda upserts customer automatically
     save: (payload: {
       customer: any; quote_number?: string; date: string; expiry_date: string
       items: any[]; sub_total: number; igst_rate: number; cgst_rate: number; sgst_rate: number
@@ -35,6 +32,13 @@ export const api = {
       apiFetch<{ success: boolean; quote: any; customer_id: string }>('/api/quotes', {
         method: 'POST',
         body: JSON.stringify(payload),
+      }),
+    delete: (id: string) =>
+      apiFetch<{ success: boolean }>(`/api/quotes/${id}`, { method: 'DELETE' }),
+    updateStatus: (id: string, status: 'draft' | 'sent' | 'accepted' | 'rejected') =>
+      apiFetch<{ success: boolean; quote: any }>(`/api/quotes/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
       }),
   },
   skus: {
