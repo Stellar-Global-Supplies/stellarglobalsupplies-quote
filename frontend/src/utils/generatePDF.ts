@@ -203,12 +203,12 @@ export function generateQuotePDF(quote: Quote, customer: Customer): string {
     alternateRowStyles: { fillColor: [248, 253, 250] },
     columnStyles: {
       0: { halign: 'center', cellWidth: 10 },
-      1: { cellWidth: 60 },              // description — widest
-      2: { halign: 'center', cellWidth: 22 },
-      3: { halign: 'center', cellWidth: 24 },
+      1: { cellWidth: 74 },              // description — widest
+      2: { halign: 'center', cellWidth: 18 },
+      3: { halign: 'center', cellWidth: 22 },
       4: { halign: 'right',  cellWidth: 24 },
-      5: { halign: 'center', cellWidth: 12 },
-      6: { halign: 'right',  cellWidth: 24 },  // wider total column
+      5: { halign: 'center', cellWidth: 10 },
+      6: { halign: 'right',  cellWidth: 24 },  // total column
     },
     theme: 'grid',
   })
@@ -289,18 +289,20 @@ export function generateQuotePDF(quote: Quote, customer: Customer): string {
   const wordsLines = doc.splitTextToSize(wordsText, W - 2*M - 6)
   doc.text(wordsLines, M + 3, wY + 5.5)
 
-  // Notes
+  // Notes — dynamic height box
   let sigY = wY + 14
   if (quote.notes?.trim()) {
+    const notesLines = doc.splitTextToSize(quote.notes.trim(), W - 2*M - 22)
+    const notesH = Math.max(10, notesLines.length * 4 + 6)  // pad for header
     doc.setFillColor(250, 253, 251)
     doc.setDrawColor(200, 220, 210)
     doc.setLineWidth(0.2)
-    doc.rect(M, wY + 11, W - 2*M, 10)
+    doc.rect(M, wY + 11, W - 2*M, notesH)
     doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...GREEN)
     doc.text('Notes:', M + 3, wY + 17)
     doc.setFont('helvetica', 'normal'); doc.setTextColor(60, 80, 70)
-    doc.text(doc.splitTextToSize(quote.notes, W - 2*M - 22), M + 18, wY + 17)
-    sigY = wY + 27
+    doc.text(notesLines, M + 18, wY + 17)
+    sigY = wY + 11 + notesH + 4
   }
 
   // ── Signatures ───────────────────────────────────────────────────────────────
