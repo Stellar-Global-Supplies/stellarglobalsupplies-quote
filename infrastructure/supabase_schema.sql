@@ -12,8 +12,8 @@ create extension if not exists "uuid-ossp";
 
 create table if not exists public.quote_customers (
   id               uuid primary key default uuid_generate_v4(),
-  company_name     text not null,
-  gst_number       text not null unique,
+   company_name     text not null,
+   gst_number       text,
   address          text not null,
   city             text,
   pin_code         text,

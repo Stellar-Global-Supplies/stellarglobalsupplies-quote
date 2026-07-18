@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Plus, Trash2, Search } from 'lucide-react'
 import { QuoteItem } from '@/lib/supabase'
 import { api } from '@/lib/api'
@@ -44,7 +45,7 @@ function SkuDropdown({
 
   if (!query.trim()) return null
 
-  return (
+  return createPortal(
     <div
       style={{ position: 'absolute', top: pos.top, left: pos.left, width: pos.width, zIndex: 9999 }}
       className="bg-white border border-gray-200 rounded-xl shadow-2xl overflow-hidden"
@@ -72,7 +73,8 @@ function SkuDropdown({
           </div>
         </button>
       ))}
-    </div>
+    </div>,
+    document.body
   )
 }
 

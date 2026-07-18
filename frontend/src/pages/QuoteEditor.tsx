@@ -131,7 +131,6 @@ export default function QuoteEditor() {
 
   const validate = () => {
     if (!customer.company_name.trim()) { toast.error('Enter customer company name'); return false }
-    if (!customer.gst_number.trim())   { toast.error('Enter customer GST number'); return false }
     if (!customer.address.trim())      { toast.error('Enter customer address'); return false }
     if (items.every(i => !i.description.trim())) { toast.error('Add at least one item'); return false }
     return true

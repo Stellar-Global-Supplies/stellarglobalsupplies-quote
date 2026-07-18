@@ -12,9 +12,10 @@ logger.setLevel(logging.INFO)
 
 
 def upsert_customer(customer: dict) -> str:
+    gst = (customer.get("gst_number") or "").strip().upper()
     record = {
         "company_name":   customer["company_name"].strip(),
-        "gst_number":     customer["gst_number"].strip().upper(),
+        "gst_number":     gst or None,  # store null if empty
         "address":        customer.get("address", "").strip(),
         "city":           customer.get("city", "").strip(),
         "pin_code":       customer.get("pin_code", "").strip(),
@@ -24,7 +25,9 @@ def upsert_customer(customer: dict) -> str:
         "contact_number": customer.get("contact_number", "").strip(),
         "email":          customer.get("email", "").strip().lower(),
     }
-    result = db_request("POST", "quote_customers", record, params="on_conflict=gst_number")
+    # Only use upsert-on-conflict when GST is provided (unique key)
+    params = "on_conflict=gst_number" if gst else ""
+    result = db_request("POST", "quote_customers", record, params=params)
     return result[0]["id"]
 
 
@@ -57,8 +60,6 @@ def handler(event, context):
     customer = body.get("customer", {})
     if not customer.get("company_name"):
         return cors_response(400, {"error": "customer.company_name is required"})
-    if not customer.get("gst_number"):
-        return cors_response(400, {"error": "customer.gst_number is required"})
     if not body.get("items"):
         return cors_response(400, {"error": "items is required"})
 

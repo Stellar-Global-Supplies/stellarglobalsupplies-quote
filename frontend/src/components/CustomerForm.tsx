@@ -156,7 +156,7 @@ export default function CustomerForm({ value, onChange, savedId, onSavedIdChange
             <Field label="Company Name *" value={value.company_name} onChange={set('company_name')} placeholder="Instant Procurement Services Pvt. Ltd." />
           </div>
 
-          <Field label="GST Number *" value={value.gst_number} onChange={set('gst_number')} placeholder="27AADCI9794D1Z6" upper />
+          <Field label="GST Number" value={value.gst_number} onChange={set('gst_number')} placeholder="27AADCI9794D1Z6" upper />
           <Field label="State Code" value={value.state_code} onChange={set('state_code')} placeholder="27" readOnly />
 
           <div className="col-span-2">
