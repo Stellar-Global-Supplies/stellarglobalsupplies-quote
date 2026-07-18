@@ -2,6 +2,7 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { Quote, Customer } from '@/lib/supabase'
 import { LOGO_BASE64 } from '@/utils/logoBase64'
+import { QR_BASE64 } from '@/utils/qrBase64'
 
 const SGS = {
   name:        'STELLAR GLOBAL SUPPLIES',
@@ -249,6 +250,13 @@ export function generateQuotePDF(quote: Quote, customer: Customer): string {
   bRow('Branch', SGS.branch)
   bRow('A/C No', `${SGS.accountType} - ${SGS.account}`)
   bRow('IFSC',   SGS.ifsc)
+
+  // QR code — right side of bank section
+  try {
+    doc.addImage(QR_BASE64, 'PNG', midX - 28, secTop + 3, 22, 22)
+  } catch {
+    // silently skip if QR image fails
+  }
 
   // Totals
   let ty = secTop + 5
