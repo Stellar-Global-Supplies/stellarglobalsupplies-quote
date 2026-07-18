@@ -253,7 +253,7 @@ export function generateQuotePDF(quote: Quote, customer: Customer): string {
 
   // QR code — place to the right of bank text, below golden line
   try {
-    doc.addImage(QR_BASE64, 'PNG', midX - 28, secTop + 13, 22, 22)
+    doc.addImage(QR_BASE64, 'PNG', midX - 28, secTop + 10, 26, 26)
   } catch {
     // silently skip if QR image fails
   }
