@@ -134,6 +134,7 @@ export function generateQuotePDF(quote: Quote, customer: Customer): string {
   doc.setTextColor(...GREEN)
   doc.setFontSize(7.5)
   doc.text(`GST: ${customer.gst_number.startsWith('IMPORT_') ? '-' : customer.gst_number}`, M + 3, cy)
+  if (customer.contact_number) { cy += 4; doc.text(`Contact: ${customer.contact_number}`, M + 3, cy) }
 
   // Right heading
   doc.setFillColor(...GREEN)
@@ -158,7 +159,6 @@ export function generateQuotePDF(quote: Quote, customer: Customer): string {
   qRow('Quotation No. :', quote.quote_number)
   qRow('Date :', fmtDate(quote.date))
   qRow('Expiry Date :', fmtDate(quote.expiry_date))
-  if (customer.contact_number) qRow('Contact :', customer.contact_number)
   qRow('Mobile :', SGS.mobile)
 
   // Gold rule before table
