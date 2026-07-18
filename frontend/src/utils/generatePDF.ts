@@ -251,9 +251,9 @@ export function generateQuotePDF(quote: Quote, customer: Customer): string {
   bRow('A/C No', `${SGS.accountType} - ${SGS.account}`)
   bRow('IFSC',   SGS.ifsc)
 
-  // QR code — right side of bank section
+  // QR code — place to the right of bank text, below golden line
   try {
-    doc.addImage(QR_BASE64, 'PNG', midX - 28, secTop + 3, 22, 22)
+    doc.addImage(QR_BASE64, 'PNG', midX - 28, secTop + 13, 22, 22)
   } catch {
     // silently skip if QR image fails
   }

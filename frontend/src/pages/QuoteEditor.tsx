@@ -176,10 +176,15 @@ export default function QuoteEditor() {
       grand_total: totals.grandTotal,
     }
     const b64 = generateQuotePDF(q, customer)
-    const win = window.open()
-    win?.document.write(
-      `<html><body style="margin:0"><iframe src="data:application/pdf;base64,${b64}" width="100%" height="100%" style="border:none;height:100vh"></iframe></body></html>`
+    const blob = new Blob(
+      [Uint8Array.from(atob(b64), c => c.charCodeAt(0))],
+      { type: 'application/pdf' }
     )
+    const url = URL.createObjectURL(blob)
+    const win = window.open(url)
+    if (!win) {
+      toast.error('Pop-up blocked. Please allow pop-ups for this site.')
+    }
   }
 
   const handleShare = async () => {
