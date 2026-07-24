@@ -25,7 +25,7 @@ logger = logging.getLogger()
 
 tracer = trace.get_tracer("sgs-quote-app")
 
-ssm = boto3.client("ssm", region_name=os.environ.get("AWS_REGION", "ap-south-1"))
+ssm = boto3.client("ssm", region_name=os.environ.get("AWS_REGION", "us-east-1"))
 _cache: dict = {}
 
 
