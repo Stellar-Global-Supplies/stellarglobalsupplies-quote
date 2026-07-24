@@ -75,6 +75,11 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
+      - name: Install Python dependencies for Lambda
+        run: |
+          cd backend/lambda
+          pip install -r requirements.txt -t python/
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -139,6 +144,11 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
           terraform_wrapper: false
+
+      - name: Install Python dependencies for Lambda
+        run: |
+          cd backend/lambda
+          pip install -r requirements.txt -t python/
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
