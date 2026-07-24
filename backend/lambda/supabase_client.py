@@ -3,16 +3,27 @@ Shared Supabase client for all Lambda functions.
 Uses the SERVICE ROLE key — bypasses RLS safely since Lambda is
 a trusted server-side environment secured by API Gateway.
 Never expose the service role key to the browser/frontend.
+
+Tracing: every ``db_request()`` call creates a child CLIENT span under
+the active SERVER (Lambda) span so that Supabase latency is visible in
+New Relic APM distributed traces.
 """
 
 import json
 import os
+import logging
+from urllib.parse import urlparse
+
 import boto3
 import urllib.request
 import urllib.parse
-import logging
+
+from opentelemetry import trace
+from opentelemetry.trace import SpanKind, Status, StatusCode
 
 logger = logging.getLogger()
+
+tracer = trace.get_tracer("sgs-quote-app")
 
 ssm = boto3.client("ssm", region_name=os.environ.get("AWS_REGION", "ap-south-1"))
 _cache: dict = {}
@@ -60,6 +71,9 @@ def db_request(
     data:   request body (for POST/PATCH)
     params: query string (without leading ?)
     prefer: override Prefer header if needed
+
+    Each call creates a CLIENT child span under the active Lambda SERVER span
+    for distributed tracing visibility in New Relic APM.
     """
     url = supabase_url()
     endpoint = f"{url}/rest/v1/{table}"
@@ -70,17 +84,35 @@ def db_request(
     if prefer:
         headers["Prefer"] = prefer
 
+    parsed = urlparse(url)
+    span_attrs = {
+        "db.system": "supabase",
+        "db.operation.name": method,
+        "db.collection.name": table,
+        "server.address": parsed.hostname or "unknown",
+        "http.request.method": method,
+    }
+
     body = json.dumps(data).encode() if data else None
     req = urllib.request.Request(endpoint, data=body, method=method, headers=headers)
 
-    try:
-        with urllib.request.urlopen(req) as resp:
-            raw = resp.read()
-            return json.loads(raw) if raw else []
-    except urllib.error.HTTPError as e:
-        body_text = e.read().decode()
-        logger.error("Supabase %s %s → %s %s", method, endpoint, e.code, body_text)
-        raise RuntimeError(f"Supabase error {e.code}: {body_text}") from e
+    with tracer.start_as_current_span(
+        f"{method} Supabase {table}",
+        kind=SpanKind.CLIENT,
+        attributes=span_attrs,
+    ) as span:
+        try:
+            with urllib.request.urlopen(req) as resp:
+                raw = resp.read()
+                span.set_attribute("http.response.status_code", resp.status)
+                return json.loads(raw) if raw else []
+        except urllib.error.HTTPError as e:
+            body_text = e.read().decode()
+            span.set_attribute("http.response.status_code", e.code)
+            span.set_status(Status(StatusCode.ERROR, f"Supabase HTTP {e.code}"))
+            span.record_exception(e)
+            logger.error("Supabase %s %s → %s %s", method, endpoint, e.code, body_text)
+            raise RuntimeError(f"Supabase error {e.code}: {body_text}") from e
 
 
 def cors_headers() -> dict:

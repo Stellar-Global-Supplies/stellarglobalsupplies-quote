@@ -2,12 +2,17 @@
 Lambda: POST /api/quotes
 - New quote: auto-assigns quote_number, inserts
 - Edit (quote_number already exists): upserts via ON CONFLICT DO UPDATE
+
+Tracing: the ``@trace_lambda_handler`` decorator creates a root SERVER span
+for each invocation.  Child CLIENT spans are created automatically by
+``supabase_client.db_request()``.
 """
 import json, logging, urllib.parse
 from supabase_client import db_request, cors_response, is_preflight
+from tracing import trace_lambda_handler, configure_json_logging
 from datetime import datetime
 
-logger = logging.getLogger()
+logger = configure_json_logging()
 logger.setLevel(logging.INFO)
 
 
@@ -48,6 +53,7 @@ def get_next_quote_number() -> str:
     return f"SGS/{fy}/1"
 
 
+@trace_lambda_handler
 def handler(event, context):
     if is_preflight(event):
         return cors_response(200, {"message": "OK"})

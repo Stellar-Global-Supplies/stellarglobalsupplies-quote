@@ -158,7 +158,7 @@ resource "aws_lambda_function" "save_quote" {
   role             = aws_iam_role.lambda.arn
   handler          = "save_quote.handler"
   runtime          = "python3.12"
-  timeout          = 15
+  timeout          = 20 # increased from 15 to allow ~1.5s for telemetry flush
   memory_size      = 128
   filename         = data.archive_file.lambda_zip.output_path
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
@@ -166,8 +166,14 @@ resource "aws_lambda_function" "save_quote" {
 
   environment {
     variables = {
-      SSM_PREFIX  = "/sgs-quote"
-      ENVIRONMENT = var.environment
+      SSM_PREFIX                         = "/sgs-quote"
+      ENVIRONMENT                        = var.environment
+      OTEL_SERVICE_NAME                  = "sgs-quote-app"
+      OTEL_RESOURCE_ATTRIBUTES           = "deployment.environment.name=${var.environment},cloud.provider=aws,cloud.region=${var.aws_region}"
+      OTEL_TRACES_SAMPLER                = "parentbased_traceidratio"
+      OTEL_TRACES_SAMPLER_ARG            = "0.05"
+      OTEL_EXPORTER_OTLP_PROTOCOL        = "http/protobuf"
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT = "https://otlp.eu01.nr-data.net/v1/traces"
     }
   }
 }
@@ -443,7 +449,7 @@ resource "aws_apigatewayv2_route" "delete_quote" {
 resource "aws_apigatewayv2_route" "update_quote_status" {
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "PATCH /api/quotes/{id}"
-  target    = "integrations/${aws_apigatewayv2_integration.delete_quote.id}"  # reuses same Lambda
+  target    = "integrations/${aws_apigatewayv2_integration.delete_quote.id}" # reuses same Lambda
 }
 
 resource "aws_lambda_permission" "delete_quote" {
