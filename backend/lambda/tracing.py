@@ -252,30 +252,29 @@ def trace_lambda_handler(handler: Callable) -> Callable:
             },
         )
 
-        # Use the span as a context manager to ensure proper context lifecycle
-        with trace.use_span(span, end_on_exit=False):
+        # Execute the handler and record the result
+        try:
+            response = handler(event, context)
+            status_code = response.get("statusCode", 200) if isinstance(response, dict) else 200
+            span.set_attribute("http.response.status_code", status_code)
+            return response
+
+        except Exception as exc:
+            span.set_attribute("http.response.status_code", 500)
+            span.set_status(Status(StatusCode.ERROR, str(exc)))
+            span.record_exception(exc)
+            raise
+
+        finally:
+            # 1. End the root span FIRST
+            span.end()
+
+            # 2. Force-flush AFTER the span has ended
+            #    Best-effort — never let telemetry failure affect the business API.
             try:
-                response = handler(event, context)
-                status_code = response.get("statusCode", 200) if isinstance(response, dict) else 200
-                span.set_attribute("http.response.status_code", status_code)
-                return response
-
-            except Exception as exc:
-                span.set_attribute("http.response.status_code", 500)
-                span.set_status(Status(StatusCode.ERROR, str(exc)))
-                span.record_exception(exc)
-                raise
-
-            finally:
-                # 1. End the root span FIRST
-                span.end()
-
-                # 2. Force-flush AFTER the span has ended
-                #    Best-effort — never let telemetry failure affect the business API.
-                try:
-                    tp = _get_tracer_provider()
-                    tp.force_flush(timeout_millis=1500)
-                except Exception:
-                    logger.warning("Telemetry force_flush failed; continuing")
+                tp = _get_tracer_provider()
+                tp.force_flush(timeout_millis=1500)
+            except Exception:
+                logger.warning("Telemetry force_flush failed; continuing")
 
     return wrapper
