@@ -61,7 +61,7 @@ def _get_nr_license_key() -> str:
     if _nr_license_key is not None:
         return _nr_license_key
 
-    region = os.environ.get("AWS_REGION", "ap-south-1")
+    region = os.environ.get("AWS_REGION", "us-east-1")
     prefix = os.environ.get("SSM_PREFIX", "/sgs-quote")
     param_name = f"{prefix}/new_relic_license_key"
 
