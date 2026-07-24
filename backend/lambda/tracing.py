@@ -31,7 +31,6 @@ from typing import Any, Callable
 import boto3
 
 from opentelemetry import trace
-from opentelemetry.context import detach
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
@@ -253,42 +252,30 @@ def trace_lambda_handler(handler: Callable) -> Callable:
             },
         )
 
-        # Make the span active so child spans and log correlation pick it up
-        token = None
-        try:
-            token = trace.set_span_in_context(span, ctx)
-        except Exception:
-            logger.debug("Failed to set span in context; continuing without context")
-
-        try:
-            response = handler(event, context)
-            status_code = response.get("statusCode", 200) if isinstance(response, dict) else 200
-            span.set_attribute("http.response.status_code", status_code)
-            return response
-
-        except Exception as exc:
-            span.set_attribute("http.response.status_code", 500)
-            span.set_status(Status(StatusCode.ERROR, str(exc)))
-            span.record_exception(exc)
-            raise
-
-        finally:
-            # 1. End the root span FIRST
-            span.end()
-
-            # 2. Detach context if it was set
-            if token is not None:
-                try:
-                    detach(token)
-                except Exception:
-                    logger.debug("Failed to detach context; continuing")
-
-            # 3. Force-flush AFTER the span has ended
-            #    Best-effort — never let telemetry failure affect the business API.
+        # Use the span as a context manager to ensure proper context lifecycle
+        with trace.use_span(span, end_on_exit=False):
             try:
-                tp = _get_tracer_provider()
-                tp.force_flush(timeout_millis=1500)
-            except Exception:
-                logger.warning("Telemetry force_flush failed; continuing")
+                response = handler(event, context)
+                status_code = response.get("statusCode", 200) if isinstance(response, dict) else 200
+                span.set_attribute("http.response.status_code", status_code)
+                return response
+
+            except Exception as exc:
+                span.set_attribute("http.response.status_code", 500)
+                span.set_status(Status(StatusCode.ERROR, str(exc)))
+                span.record_exception(exc)
+                raise
+
+            finally:
+                # 1. End the root span FIRST
+                span.end()
+
+                # 2. Force-flush AFTER the span has ended
+                #    Best-effort — never let telemetry failure affect the business API.
+                try:
+                    tp = _get_tracer_provider()
+                    tp.force_flush(timeout_millis=1500)
+                except Exception:
+                    logger.warning("Telemetry force_flush failed; continuing")
 
     return wrapper
