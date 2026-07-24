@@ -49,3 +49,4 @@ logs/
 *.tmp
 *.temp
 *.cachebackend/lambda_package.zip
+backend/lambda/python/
