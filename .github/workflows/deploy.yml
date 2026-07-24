@@ -77,8 +77,7 @@ jobs:
 
       - name: Install Python dependencies for Lambda
         run: |
-          cd ../backend/lambda
-          pip install -r requirements.txt -t python/
+          pip install -r $GITHUB_WORKSPACE/backend/lambda/requirements.txt -t $GITHUB_WORKSPACE/backend/lambda/python/
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -147,8 +146,7 @@ jobs:
 
       - name: Install Python dependencies for Lambda
         run: |
-          cd ../backend/lambda
-          pip install -r requirements.txt -t python/
+          pip install -r $GITHUB_WORKSPACE/backend/lambda/requirements.txt -t $GITHUB_WORKSPACE/backend/lambda/python/
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
