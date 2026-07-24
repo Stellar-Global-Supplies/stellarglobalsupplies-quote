@@ -31,6 +31,7 @@ from typing import Any, Callable
 import boto3
 
 from opentelemetry import trace
+from opentelemetry.context import detach
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
@@ -270,7 +271,7 @@ def trace_lambda_handler(handler: Callable) -> Callable:
         finally:
             # 1. End the root span FIRST
             span.end()
-            trace.detach(token)
+            detach(token)
 
             # 2. Force-flush AFTER the span has ended
             #    Best-effort — never let telemetry failure affect the business API.
