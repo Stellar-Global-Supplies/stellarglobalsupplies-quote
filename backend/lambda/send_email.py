@@ -1,6 +1,9 @@
 """
 Lambda: POST /api/email/send
 Sends quotation PDF as email attachment via Gmail OAuth2.
+
+Tracing: the ``@trace_lambda_handler`` decorator creates a root SERVER span
+for each invocation.
 """
 
 import json
@@ -14,8 +17,9 @@ from email.mime.base import MIMEBase
 from email import encoders
 import urllib.request
 import urllib.parse
+from tracing import trace_lambda_handler, configure_json_logging
 
-logger = logging.getLogger()
+logger = configure_json_logging()
 logger.setLevel(logging.INFO)
 
 ssm = boto3.client("ssm", region_name=os.environ.get("AWS_REGION", "us-east-1"))
@@ -116,6 +120,7 @@ def cors_response(status: int, body: dict) -> dict:
     }
 
 
+@trace_lambda_handler
 def handler(event, context):
     # Handle CORS preflight
     if event.get("requestContext", {}).get("http", {}).get("method") == "OPTIONS":

@@ -108,10 +108,10 @@ resource "aws_lambda_function" "send_email" {
   tags             = local.tags
 
   environment {
-    variables = {
-      SSM_PREFIX  = "/sgs-quote"
-      ENVIRONMENT = var.environment
-    }
+    variables = merge(
+      local.otel_env_vars,
+      {}
+    )
   }
 }
 
@@ -127,10 +127,10 @@ resource "aws_lambda_function" "save_customer" {
   tags             = local.tags
 
   environment {
-    variables = {
-      SSM_PREFIX  = "/sgs-quote"
-      ENVIRONMENT = var.environment
-    }
+    variables = merge(
+      local.otel_env_vars,
+      {}
+    )
   }
 }
 
@@ -146,10 +146,10 @@ resource "aws_lambda_function" "get_customers" {
   tags             = local.tags
 
   environment {
-    variables = {
-      SSM_PREFIX  = "/sgs-quote"
-      ENVIRONMENT = var.environment
-    }
+    variables = merge(
+      local.otel_env_vars,
+      {}
+    )
   }
 }
 
@@ -165,16 +165,10 @@ resource "aws_lambda_function" "save_quote" {
   tags             = local.tags
 
   environment {
-    variables = {
-      SSM_PREFIX                         = "/sgs-quote"
-      ENVIRONMENT                        = var.environment
-      OTEL_SERVICE_NAME                  = "sgs-quote-app"
-      OTEL_RESOURCE_ATTRIBUTES           = "deployment.environment.name=${var.environment},cloud.provider=aws,cloud.region=${var.aws_region}"
-      OTEL_TRACES_SAMPLER                = "parentbased_traceidratio"
-      OTEL_TRACES_SAMPLER_ARG            = "0.05"
-      OTEL_EXPORTER_OTLP_PROTOCOL        = "http/protobuf"
-      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT = "https://otlp.eu01.nr-data.net/v1/traces"
-    }
+    variables = merge(
+      local.otel_env_vars,
+      {}
+    )
   }
 }
 
@@ -190,10 +184,10 @@ resource "aws_lambda_function" "get_quotes" {
   tags             = local.tags
 
   environment {
-    variables = {
-      SSM_PREFIX  = "/sgs-quote"
-      ENVIRONMENT = var.environment
-    }
+    variables = merge(
+      local.otel_env_vars,
+      {}
+    )
   }
 }
 
@@ -381,10 +375,10 @@ resource "aws_lambda_function" "get_skus" {
   tags             = local.tags
 
   environment {
-    variables = {
-      SSM_PREFIX  = "/sgs-quote"
-      ENVIRONMENT = var.environment
-    }
+    variables = merge(
+      local.otel_env_vars,
+      {}
+    )
   }
 }
 
@@ -429,7 +423,10 @@ resource "aws_lambda_function" "delete_quote" {
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
   tags             = local.tags
   environment {
-    variables = { SSM_PREFIX = "/sgs-quote", ENVIRONMENT = var.environment }
+    variables = merge(
+      local.otel_env_vars,
+      {}
+    )
   }
 }
 

@@ -1,16 +1,22 @@
 """
 Lambda: DELETE /api/quotes/{id}  — delete a quote
         PATCH  /api/quotes/{id}  — update status only
+
+Tracing: the ``@trace_lambda_handler`` decorator creates a root SERVER span
+for each invocation.  Child CLIENT spans are created automatically by
+``supabase_client.db_request()``.
 """
 import json, logging
 from supabase_client import db_request, cors_response, is_preflight
+from tracing import trace_lambda_handler, configure_json_logging
 
-logger = logging.getLogger()
+logger = configure_json_logging()
 logger.setLevel(logging.INFO)
 
 VALID_STATUSES = {'draft', 'sent', 'accepted', 'rejected'}
 
 
+@trace_lambda_handler
 def handler(event, context):
     if is_preflight(event):
         return cors_response(200, {"message": "OK"})
