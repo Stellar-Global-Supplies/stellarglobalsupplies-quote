@@ -102,7 +102,7 @@ def _create_tracer_provider() -> TracerProvider:
     )
 
     processor = BatchSpanProcessor(
-        exporter=exporter,
+        span_exporter=exporter,
         max_queue_size=2048,
         max_export_batch_size=512,
         schedule_delay_millis=5000,
