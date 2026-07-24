@@ -254,7 +254,11 @@ def trace_lambda_handler(handler: Callable) -> Callable:
         )
 
         # Make the span active so child spans and log correlation pick it up
-        token = trace.set_span_in_context(span, ctx)
+        token = None
+        try:
+            token = trace.set_span_in_context(span, ctx)
+        except Exception:
+            logger.debug("Failed to set span in context; continuing without context")
 
         try:
             response = handler(event, context)
@@ -271,9 +275,15 @@ def trace_lambda_handler(handler: Callable) -> Callable:
         finally:
             # 1. End the root span FIRST
             span.end()
-            detach(token)
 
-            # 2. Force-flush AFTER the span has ended
+            # 2. Detach context if it was set
+            if token is not None:
+                try:
+                    detach(token)
+                except Exception:
+                    logger.debug("Failed to detach context; continuing")
+
+            # 3. Force-flush AFTER the span has ended
             #    Best-effort — never let telemetry failure affect the business API.
             try:
                 tp = _get_tracer_provider()
