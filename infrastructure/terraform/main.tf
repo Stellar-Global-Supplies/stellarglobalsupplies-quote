@@ -46,7 +46,7 @@ locals {
     OTEL_SERVICE_NAME                  = "sgs-quote-app"
     OTEL_RESOURCE_ATTRIBUTES           = "deployment.environment.name=${var.environment},cloud.provider=aws,cloud.region=${var.aws_region}"
     OTEL_TRACES_SAMPLER                = "parentbased_traceidratio"
-    OTEL_TRACES_SAMPLER_ARG            = "0.05"  # 5% sampling for cost control
+    OTEL_TRACES_SAMPLER_ARG            = "0.75"  # 75% sampling — adjust as needed for cost/visibility balance
     OTEL_EXPORTER_OTLP_PROTOCOL        = "http/protobuf"
     OTEL_EXPORTER_OTLP_TRACES_ENDPOINT = "https://otlp.eu01.nr-data.net/v1/traces"
   }
