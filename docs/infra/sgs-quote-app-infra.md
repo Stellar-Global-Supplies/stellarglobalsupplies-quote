@@ -15,7 +15,7 @@ This document covers the AWS infrastructure powering the SGS Quote App — a ser
 
 ---
 
-## Architecture
+## Architecture 
 
 ```
 us-east-1

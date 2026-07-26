@@ -14,7 +14,7 @@ The SGS Quote App is a serverless web application that enables sales teams at St
 ---
 
 ## System Context
-
+ 
 ```mermaid
 flowchart LR
     Browser[Sales Team Browser] -->|HTTPS| CF[CloudFront CDN]

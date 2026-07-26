@@ -24,7 +24,7 @@ Use this runbook when the Quote App API is returning an elevated rate of 5xx err
 
 ---
 
-## When to use this runbook
+## When to use this runbook 
 
 - Alert: `QuoteAppErrorRate > 5%` in PagerDuty
 - Symptom: Quote creation or listing fails in the UI

@@ -20,6 +20,7 @@ description: "Architecture Decision Record — choosing AWS Lambda over ECS Farg
 
 ---
 
+
 ## Context
 
 The SGS Quote App backend needs to handle HTTP API requests for quote CRUD operations, customer management, SKU search, and email dispatch. The workload is characterised by:
