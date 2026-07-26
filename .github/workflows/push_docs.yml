@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 env:
-  DOCS_REPO:    'stellar-docs'
+  DOCS_REPO:    ${{ secrets.DOCS_REPO }}
   REPO_SECTION: ${{ secrets.REPO_SECTION }}
 
 jobs:
