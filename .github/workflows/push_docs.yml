@@ -1,0 +1,243 @@
+name: Push Docs to Mintlify
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+  release:
+    types: [published]
+  workflow_dispatch:
+
+env:
+  DOCS_REPO:    ${{ secrets.DOCS_REPO }}
+  REPO_SECTION: ${{ secrets.REPO_SECTION }}
+
+jobs:
+
+  # ----------------------------------------------------------------
+  # JOB 1: Sync docs/** changes to stellar-docs
+  # ----------------------------------------------------------------
+  sync-docs:
+    name: Sync docs to stellar-docs
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+
+    steps:
+
+      - name: Checkout source repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed, added and deleted doc files
+        id: changes
+        run: |
+          UPSERTED=$(git diff --name-only --diff-filter=ACM HEAD~1 HEAD \
+                       -- 'docs/**/*.md' 2>/dev/null | tr '\n' ' ')
+          DELETED=$(git diff --name-only --diff-filter=D HEAD~1 HEAD \
+                      -- 'docs/**/*.md' 2>/dev/null | tr '\n' ' ')
+          IMAGES=$(git diff --name-only --diff-filter=ACM HEAD~1 HEAD \
+                     -- 'docs/images/**' 2>/dev/null | tr '\n' ' ')
+
+          echo "upserted=$UPSERTED" >> $GITHUB_OUTPUT
+          echo "deleted=$DELETED"   >> $GITHUB_OUTPUT
+          echo "images=$IMAGES"     >> $GITHUB_OUTPUT
+
+          echo "📄 Upserted: $UPSERTED"
+          echo "🗑️  Deleted:  $DELETED"
+          echo "🖼️  Images:   $IMAGES"
+
+          if [ -z "$UPSERTED" ] && [ -z "$DELETED" ] && [ -z "$IMAGES" ]; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true"  >> $GITHUB_OUTPUT
+          fi
+
+      - name: Convert Markdown files to MDX
+        if: steps.changes.outputs.has_changes == 'true' && steps.changes.outputs.upserted != ''
+        run: |
+          set -e
+          mkdir -p /tmp/mdx-out
+
+          for src in ${{ steps.changes.outputs.upserted }}; do
+            [ -f "$src" ] || continue
+
+            rel="${src#docs/}"
+            subdir=$(dirname "$rel")
+            fname=$(basename "$rel" .md)
+            outdir="/tmp/mdx-out/$subdir"
+            mkdir -p "$outdir"
+            outfile="$outdir/${fname}.mdx"
+
+            first_line=$(head -1 "$src")
+
+            if [ "$first_line" = "---" ]; then
+              cp "$src" "$outfile"
+            else
+              h1=$(grep -m1 "^# " "$src" | sed 's/^# //' || true)
+              title="${h1:-$(echo "$fname" | sed 's/-/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2))}1')}"
+              description=$(grep -m1 "^[^#>\-\|\`\!\[ ]" "$src" | cut -c1-160 || echo "")
+              [ -z "$description" ] && description="$title"
+
+              {
+                echo "---"
+                echo "title: \"$title\""
+                echo "description: \"$description\""
+                echo "---"
+                echo ""
+                if [ -n "$h1" ]; then
+                  tail -n +2 "$src"
+                else
+                  cat "$src"
+                fi
+              } > "$outfile"
+            fi
+
+            echo "✅ Converted: $src → $outfile"
+          done
+
+      # ── Clone stellar-docs using PAT ─────────────────────────────
+      - name: Clone stellar-docs
+        if: steps.changes.outputs.has_changes == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.DOCS_REPO }}
+          token: ${{ secrets.DOCS_PAT }}        # ← org-level PAT, no SSH key needed
+          path: stellar-docs
+
+      - name: Copy MDX files into stellar-docs
+        if: steps.changes.outputs.has_changes == 'true' && steps.changes.outputs.upserted != ''
+        run: |
+          TARGET_BASE="stellar-docs/docs/${{ env.REPO_SECTION }}"
+
+          for subdir in architecture runbooks infra api adr; do
+            src_dir="/tmp/mdx-out/$subdir"
+            if [ -d "$src_dir" ] && [ "$(ls -A "$src_dir")" ]; then
+              mkdir -p "$TARGET_BASE/$subdir"
+              cp "$src_dir"/*.mdx "$TARGET_BASE/$subdir/" 2>/dev/null || true
+              echo "📁 Copied $subdir pages"
+            fi
+          done
+
+      - name: Copy images into stellar-docs
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          if [ -d "docs/images" ] && [ "$(ls -A docs/images 2>/dev/null)" ]; then
+            TARGET_IMAGES="stellar-docs/docs/${{ env.REPO_SECTION }}/images"
+            mkdir -p "$TARGET_IMAGES"
+            cp docs/images/* "$TARGET_IMAGES/" 2>/dev/null || true
+            echo "🖼️  Copied images"
+          fi
+
+      - name: Remove deleted docs from stellar-docs
+        if: steps.changes.outputs.has_changes == 'true' && steps.changes.outputs.deleted != ''
+        run: |
+          TARGET_BASE="stellar-docs/docs/${{ env.REPO_SECTION }}"
+
+          for src in ${{ steps.changes.outputs.deleted }}; do
+            rel="${src#docs/}"
+            subdir=$(dirname "$rel")
+            fname=$(basename "$rel" .md)
+            target="$TARGET_BASE/$subdir/${fname}.mdx"
+            if [ -f "$target" ]; then
+              rm "$target"
+              echo "🗑️  Deleted: $target"
+            fi
+          done
+
+      - name: Commit and push to stellar-docs
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          cd stellar-docs
+          git config user.name  "docs-bot"
+          git config user.email "docs-bot@stellarglobalsupplies.com"
+
+          git add .
+          if git diff --staged --quiet; then
+            echo "ℹ️  No effective changes — skipping commit"
+          else
+            SHORT_SHA="${{ github.sha }}"
+            SHORT_SHA="${SHORT_SHA:0:7}"
+            git commit -m "docs(${{ env.REPO_SECTION }}): sync from ${{ github.repository }}@${SHORT_SHA}
+
+            Triggered by: ${{ github.event.head_commit.message }}
+            Author: ${{ github.event.head_commit.author.name }}"
+            git push origin main
+            echo "✅ Pushed docs to stellar-docs"
+          fi
+
+  # ----------------------------------------------------------------
+  # JOB 2: Auto-generate release note page on GitHub Release publish
+  # ----------------------------------------------------------------
+  push-release-notes:
+    name: Push release notes to stellar-docs
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+
+    steps:
+
+      - name: Extract release metadata
+        id: meta
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          DATE=$(date -u +"%Y-%m-%d")
+          DATE_HUMAN=$(date -u +"%B %d, %Y")
+          SAFE_VER=$(echo "$VERSION" | tr '.' '-' | sed 's/^v//')
+
+          echo "version=$VERSION"       >> $GITHUB_OUTPUT
+          echo "date=$DATE"             >> $GITHUB_OUTPUT
+          echo "date_human=$DATE_HUMAN" >> $GITHUB_OUTPUT
+          echo "safe_ver=$SAFE_VER"     >> $GITHUB_OUTPUT
+
+      - name: Generate release MDX
+        run: |
+          mkdir -p /tmp/release
+
+          cat > /tmp/release/v${{ steps.meta.outputs.safe_ver }}.mdx << MDXEOF
+          ---
+          title: "${{ github.event.repository.name }} ${{ steps.meta.outputs.version }}"
+          description: "Released on ${{ steps.meta.outputs.date_human }}"
+          ---
+
+          **Released:** ${{ steps.meta.outputs.date_human }}
+          **Tag:** [\`${{ steps.meta.outputs.version }}\`](${{ github.event.release.html_url }})
+          **Prerelease:** ${{ github.event.release.prerelease }}
+
+          ---
+
+          ${{ github.event.release.body }}
+
+          ---
+
+          *Auto-generated from [GitHub Release](${{ github.event.release.html_url }})*
+          MDXEOF
+
+      # ── Clone stellar-docs using PAT ─────────────────────────────
+      - name: Clone stellar-docs
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.DOCS_REPO }}
+          token: ${{ secrets.DOCS_PAT }}        # ← org-level PAT, no SSH key needed
+          path: stellar-docs
+
+      - name: Copy release MDX to stellar-docs
+        run: |
+          TARGET="stellar-docs/docs/${{ env.REPO_SECTION }}/releases"
+          mkdir -p "$TARGET"
+          cp /tmp/release/*.mdx "$TARGET/"
+
+      - name: Commit and push release notes
+        run: |
+          cd stellar-docs
+          git config user.name  "docs-bot"
+          git config user.email "docs-bot@stellarglobalsupplies.com"
+
+          git add docs/${{ env.REPO_SECTION }}/releases/
+          if git diff --staged --quiet; then
+            echo "No changes"
+          else
+            git commit -m "docs(${{ env.REPO_SECTION }}): release ${{ steps.meta.outputs.version }}"
+            git push origin main
+            echo "✅ Pushed release notes"
+          fi

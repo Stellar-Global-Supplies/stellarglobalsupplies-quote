@@ -1,3 +1,8 @@
+---
+title: "OpenTelemetry (OTLP) Distributed Tracing for AWS Lambda → New Relic"
+description: "Step-by-step guide for migrating AWS Lambda Python applications to use OpenTelemetry distributed tracing with New Relic APM via the OTLP endpoint"
+---
+
 # OpenTelemetry (OTLP) Migration Guide for AWS Lambda → New Relic
 
 ## Overview
