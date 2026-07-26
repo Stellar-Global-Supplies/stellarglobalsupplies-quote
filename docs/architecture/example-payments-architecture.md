@@ -1,6 +1,7 @@
 ---
 title: "Payments Service Architecture"
 description: "System design, component overview and data flow for the Stellar Payments Service"
+author: "Prasad Bhavsar"
 ---
 
 > This is an **example** of a filled-in architecture doc.
@@ -15,6 +16,7 @@ Service and the Stripe API, providing an internal abstraction that decouples
 business logic from payment provider specifics.
 
 **Owner:** `@team-payments`
+**Author:** `Prasad Bhavsar`
 **Last reviewed:** `2025-07-01`
 **Status:** `Approved`
 
@@ -63,6 +65,29 @@ flowchart LR
 6. `201` with the internal payment record is returned to Orders Service
 7. Async: Stripe webhook fires → Reconciliation Worker updates the record status
 
+### Detailed Flow Diagram
+
+```
+┌──────────────┐     ┌──────────────────┐     ┌──────────┐
+│ Orders       │────▶│ Payments API     │────▶│ Stripe   │
+│ Service      │     │ (ECS Fargate)    │     │          │
+└──────────────┘     └───────┬──────────┘     └──────────┘
+                             │
+                    ┌────────▼────────┐
+                    │  PostgreSQL DB  │
+                    └────────┬────────┘
+                             │
+                    ┌────────▼────────┐
+                    │  SQS: payment-  │
+                    │  events         │
+                    └────────┬────────┘
+                             │
+                    ┌────────▼────────┐
+                    │ Reconciliation  │
+                    │ Worker (Celery) │
+                    └─────────────────┘
+```
+
 ---
 
 ## Infrastructure
@@ -74,6 +99,17 @@ flowchart LR
 | `payment-events` | SQS Standard | `ap-south-1` | DLQ after 3 retries |
 | Stripe API keys | Secrets Manager | `ap-south-1` | Rotated every 90 days |
 
+### Infrastructure Details
+
+| Resource | Specification | Purpose |
+|----------|--------------|---------|
+| RDS Instance | db.r7g.large, Multi-AZ | Primary database with automatic failover |
+| ECS Cluster | Fargate, 2-8 tasks | Compute for Payments API |
+| SQS Queue | Standard, DLQ enabled | Async event processing |
+| Secrets Manager | Automatic rotation | Stripe API key storage |
+| ALB | Application Load Balancer | Traffic distribution to ECS tasks |
+| CloudWatch | Logs + Metrics + Alarms | Monitoring and observability |
+
 ---
 
 ## Security
@@ -82,6 +118,8 @@ flowchart LR
 - **Secrets:** Stripe API keys in AWS Secrets Manager, never in env vars or code
 - **PCI scope:** This service is in scope for PCI DSS — no card numbers are stored
 - **Network:** Private subnet only, no public IP, VPC endpoint to Secrets Manager
+- **Encryption:** TLS 1.3 in transit, AES-256 at rest
+- **Audit logging:** All payment operations logged to CloudWatch with correlation IDs
 
 ---
 

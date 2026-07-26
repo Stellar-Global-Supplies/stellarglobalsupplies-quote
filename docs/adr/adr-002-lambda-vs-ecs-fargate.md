@@ -1,6 +1,7 @@
 ---
 title: "ADR-002: Why we chose Lambda over ECS Fargate"
 description: "Architecture Decision Record — choosing AWS Lambda over ECS Fargate for the SGS Quote Application backend"
+author: "Prasad Bhavsar"
 ---
 
 <!--
@@ -16,6 +17,7 @@ description: "Architecture Decision Record — choosing AWS Lambda over ECS Farg
 
 **Date:** `2025-07-26`
 **Deciders:** `@prasadbhavsar`, `@team-sgs-quote`
+**Author:** `Prasad Bhavsar`
 **Technical story:** [Link to ticket / RFC / discussion]
 
 ---

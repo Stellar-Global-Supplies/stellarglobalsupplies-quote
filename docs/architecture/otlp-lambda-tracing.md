@@ -1,6 +1,7 @@
 ---
 title: "OpenTelemetry (OTLP) Distributed Tracing for AWS Lambda → New Relic"
 description: "Step-by-step guide for migrating AWS Lambda Python applications to use OpenTelemetry distributed tracing with New Relic APM via the OTLP endpoint"
+author: "Prasad Bhavsar"
 ---
 
 # OpenTelemetry (OTLP) Migration Guide for AWS Lambda → New Relic
@@ -10,6 +11,9 @@ description: "Step-by-step guide for migrating AWS Lambda Python applications to
 This document provides a step-by-step guide for migrating any AWS Lambda Python application to use OpenTelemetry distributed tracing with New Relic APM via the OTLP endpoint.
 
 It is based on the real-world implementation done for the **Stellar Global Supplies Quote Application** (`stellarglobalsupplies-quote`) and captures all issues encountered, fixes applied, and recommendations.
+
+**Author:** Prasad Bhavsar
+**Last reviewed:** 2025-07-26
 
 ---
 
@@ -753,8 +757,119 @@ pip install -r $GITHUB_WORKSPACE/backend/lambda/requirements.txt \
 
 **Error:** Running `aws lambda update-function-configuration --environment` replaces ALL env vars.
 
-**Fix:** Always include ALL existing variables when updating. Use a JSON file:
-```bash
-# Create env-vars.json with ALL variables
-aws lambda update-function-configuration \
- 
+**Fix:** Always include ALL existing variables when updating. Use a merge strategy in Terraform:
+```hcl
+environment {
+  variables = merge(
+    local.otel_env_vars,
+    {
+      # App-specific vars here
+    }
+  )
+}
+```
+
+---
+
+## 13. Verification Checklist
+
+- [ ] Lambda starts without import errors
+- [ ] CloudWatch logs show trace IDs in JSON logs
+- [ ] Spans appear in New Relic APM within 2 minutes
+- [ ] Correct service name shown in New Relic
+- [ ] Sampling rate matches configuration
+- [ ] No PII or secrets recorded in span attributes
+- [ ] Cold start cache works (second invocation doesn't hit SSM)
+- [ ] Rollback procedure tested
+
+---
+
+## 14. New Relic Configuration & NRQL Queries
+
+### Useful NRQL Queries
+
+```sql
+-- Error trace breakdown by function
+FROM Span SELECT count(*), uniques(service.name) 
+WHERE http.response.status_code >= 500
+SINCE 24 hours ago FACET service.name, http.route
+
+-- P99 latency by endpoint
+FROM Span SELECT percentile(duration.ms, 99) 
+WHERE span.kind = 'SERVER'
+SINCE 24 hours ago FACET http.route
+
+-- Trace distribution by sampling rate
+FROM Span SELECT rate(count(*), 1 minute) 
+TIMESERIES SINCE 1 hour ago
+
+-- Database call analysis
+FROM Span SELECT count(*), avg(duration.ms) 
+WHERE db.system IS NOT NULL
+SINCE 24 hours ago FACET db.operation.name, db.collection.name
+
+-- Top 5 slowest traces
+FROM Trace 
+SELECT endTimestamp, duration.ms, name
+ORDER BY duration.ms DESC 
+LIMIT 5
+```
+
+---
+
+## 15. Security Review
+
+### What tracing exposes
+
+- Lambda invocation counts and timing (metadata)
+- API endpoint names (in span names)
+- Database table names (in span attributes)
+- HTTP response status codes
+- Error messages (exception messages)
+
+### What tracing does NOT expose
+
+- Request/response payloads
+- Authentication tokens or API keys
+- Database query parameters or row data
+- Customer PII
+- Secrets or credentials
+
+### Security checklist
+
+- [ ] No secrets stored as span attributes
+- [ ] SSM parameter marked as SecureString (encrypted)
+- [ ] IAM policy scoped to specific SSM path prefix
+- [ ] Lambda IAM role uses least privilege
+- [ ] KMS key used for SSM encryption
+- [ ] OTLP endpoint uses HTTPS (TLS 1.2+)
+- [ ] License key transmitted only over encrypted channel (SSM)
+
+---
+
+## 16. Rollback Procedure
+
+### Option A: Disable tracing (fastest)
+
+Remove the `@trace_lambda_handler` decorator and `configure_json_logging()` call from Lambda handlers. Redeploy.
+
+### Option B: Remove tracing entirely
+
+1. Remove `opentelemetry-*` packages from `requirements.txt`
+2. Remove `tracing.py` module
+3. Remove `OTEL_*` environment variables from Terraform
+4. Remove SSM parameter for New Relic license key (or keep for other apps)
+5. Remove `ssm:GetParameter` IAM permission
+6. Redeploy via CI/CD
+
+### Option C: Reduce to no-op (no code changes)
+
+Set `OTEL_TRACES_SAMPLER_ARG = "0.0"` to sample 0% of traces. The tracing code still runs but creates no spans. This is useful for a quick rollback while keeping the instrumentation in place.
+
+---
+
+## Related Documents
+
+- [Architecture: SGS Quote App](../architecture/sgs-quote-app-architecture.md)
+- [Infra: SGS Quote App Infrastructure](../infra/sgs-quote-app-infra.md)
+- [Runbook: High Error Rate](../runbooks/sgs-quote-app-high-error-rate.md)

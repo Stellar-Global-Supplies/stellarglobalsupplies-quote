@@ -1,6 +1,7 @@
 ---
 title: "ADR-001: Why we chose Supabase over self-hosted PostgreSQL"
 description: "Architecture Decision Record — choosing managed Supabase over self-hosted PostgreSQL for the SGS Quote Application"
+author: "Prasad Bhavsar"
 ---
 
 <!--
@@ -16,6 +17,7 @@ description: "Architecture Decision Record — choosing managed Supabase over se
 
 **Date:** `2025-07-26`
 **Deciders:** `@prasadbhavsar`, `@team-sgs-quote`
+**Author:** `Prasad Bhavsar`
 **Technical story:** [Link to ticket / RFC / discussion]
 
 ---
@@ -160,4 +162,4 @@ Option C was rejected due to concurrency limitations — Lambda functions can in
 - [Infra: SGS Quote App Infrastructure](../infra/sgs-quote-app-infra.md)
 - [API: SGS Quote App API Reference](../api/sgs-quote-app-api.md)
 - [Supabase Schema](../infrastructure/supabase_schema.sql)
-- [ADR-002: Why we chose Lambda over ECS Fargate](./adr-002-lambda-vs-ecs-fargate.md) 
+- [ADR-002: Why we chose Lambda over ECS Fargate](./adr-002-lambda-vs-ecs-fargate.md)

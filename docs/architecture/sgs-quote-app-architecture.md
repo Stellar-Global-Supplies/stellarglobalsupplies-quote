@@ -1,6 +1,7 @@
 ---
 title: "SGS Quote App Architecture"
 description: "System design, component overview and data flow for the Stellar Global Supplies Quote Application"
+author: "Prasad Bhavsar"
 ---
 
 ## Overview
@@ -8,13 +9,14 @@ description: "System design, component overview and data flow for the Stellar Gl
 The SGS Quote App is a serverless web application that enables sales teams at Stellar Global Supplies to create, manage, and email professional GST-compliant quotes to customers. It provides a dashboard for quote lifecycle management (draft → sent → accepted/rejected) with automatic quote numbering and PDF generation.
 
 **Owner:** `@team-sgs-quote`
+**Author:** `Prasad Bhavsar`
 **Last reviewed:** `2025-07-26`
 **Status:** `Approved`
 
 ---
 
 ## System Context
- 
+
 ```mermaid
 flowchart LR
     Browser[Sales Team Browser] -->|HTTPS| CF[CloudFront CDN]
@@ -39,6 +41,13 @@ flowchart LR
 - **Deployed as:** Static files on S3 + CloudFront CDN
 - **Scales:** Horizontally via CDN — zero capacity management
 - **Repo:** `stellarglobalsupplies/stellarglobalsupplies-quote`
+- **Key features:**
+  - Quote editor with real-time tax calculations (IGST/CGST/SGST)
+  - Customer management with GST-based deduplication
+  - PDF generation client-side using jsPDF
+  - Email integration with PDF attachment
+  - Dark mode UI
+  - Mobile-responsive design
 
 ### Backend (Lambda Functions)
 
@@ -47,6 +56,11 @@ flowchart LR
 - **Deployed as:** AWS Lambda (7 functions), API Gateway HTTP API
 - **Scales:** Horizontally per-invocation — Lambda handles concurrency
 - **Repo:** `stellarglobalsupplies/stellarglobalsupplies-quote`
+- **Key design decisions:**
+  - Each endpoint mapped to a dedicated Lambda function for isolation
+  - OpenTelemetry tracing integrated via OTLP for observability
+  - Service role key for Supabase authentication
+  - Environment-specific configuration via SSM Parameter Store
 
 ### Database (Supabase)
 
@@ -55,6 +69,10 @@ flowchart LR
 - **Deployed as:** Managed SaaS with RLS and auto-backups
 - **Scales:** Vertically — plan upgrade when needed
 - **Repo:** Schema in `infrastructure/supabase_schema.sql`
+- **Database tables:**
+  - `quote_customers` — Customer records with GST-based deduplication
+  - `quotes` — Quote records with items stored as JSONB
+  - `skus` — Product SKU catalog with HSN/SAC codes
 
 ---
 
@@ -91,6 +109,36 @@ flowchart LR
 | SSM Parameters | Parameter Store | `us-east-1` | `/sgs-quote/*` prefix |
 | Certificate | ACM | `us-east-1` | `*.stellarglobalsupplies.com` |
 
+### Infrastructure Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      AWS Cloud (us-east-1)                   │
+│                                                             │
+│  ┌─────────────┐    ┌──────────────┐    ┌───────────────┐  │
+│  │   Browser    │───▶│  CloudFront  │───▶│  S3 Frontend  │  │
+│  └─────────────┘    └──────────────┘    └───────────────┘  │
+│        │                                                     │
+│        ▼                                                     │
+│  ┌──────────────────────────────────────────────────┐       │
+│  │              API Gateway HTTP API                  │       │
+│  │         JWT Authorizer (Cognito)                  │       │
+│  └───────────┬──────────┬──────────┬───────────────┘       │
+│              │          │          │                         │
+│       ┌──────▼──┐ ┌─────▼────┐ ┌──▼────────┐               │
+│       │ save_   │ │ get_     │ │ send_     │               │
+│       │ quote   │ │ quotes   │ │ email     │  ... (7 fns) │
+│       └──────┬──┘ └─────┬────┘ └──┬────────┘               │
+│              │          │          │                         │
+│              └──────────┼──────────┘                         │
+│                         │                                    │
+│              ┌──────────▼──────────┐                        │
+│              │     Supabase DB      │                        │
+│              │  (PostgreSQL 15)     │                        │
+│              └─────────────────────┘                        │
+└─────────────────────────────────────────────────────────────┘
+```
+
 ---
 
 ## Lambda Functions
@@ -104,6 +152,13 @@ flowchart LR
 | `get_customers` | `GET /api/customers` | List/search customers | 128MB | 10s |
 | `get_skus` | `GET /api/skus` | Search SKUs/products | 128MB | 10s |
 | `send_email` | `POST /api/email/send` | Send quote via SES | 512MB | 60s |
+
+### Lambda Dependencies
+
+All Lambda functions share common modules:
+- `supabase_client.py` — Supabase REST API client with tracing
+- `tracing.py` — OpenTelemetry configuration and decorators
+- AWS SDK via Lambda runtime (boto3)
 
 ---
 
@@ -124,8 +179,17 @@ flowchart LR
 - **Tracing:** OpenTelemetry SDK in Lambda → OTLP → New Relic APM (EU region)
 - **Logging:** JSON structured logs via `TraceJsonFormatter` in CloudWatch Logs
 - **Sampling:** 75% trace sampling (`parentbased_traceidratio`)
-- **Dashboards:** [New Relic APM — sgs-quote-app]
+- **Dashboards:** [New Relic APM — sgs-quote-app](https://one.newrelic.com/redirect/entity/dashboard)
 - **Alerts:** Error rate > 5%, P99 latency > 2s
+
+### Key Metrics to Monitor
+
+| Metric | Threshold | Action |
+|--------|-----------|--------|
+| Lambda Error Rate | > 5% | Investigate logs |
+| P99 Duration (save_quote) | > 10s | Check Supabase latency |
+| Email Send Success Rate | < 95% | Check SES reputation |
+| Supabase Active Connections | > 160 (80% of 200) | Scale up or add pooling |
 
 ---
 
@@ -137,6 +201,36 @@ flowchart LR
 - **Backend:** Install Python deps → zip Lambda code → Terraform updates function
 - **Rollback:** Revert PR and redeploy, or use previous Lambda version
 
+### Deploy Pipeline Steps
+
+```
+Git Push / PR Merge to main
+        │
+        ▼
+GitHub Action: deploy.yml
+        │
+        ├── Install Python deps (pip install -t backend/lambda/)
+        ├── Build frontend (npm run build)
+        ├── Sync frontend to S3
+        ├── Invalidate CloudFront cache
+        ├── Zip Lambda code + deps
+        └── Terraform apply (updates Lambda + infra)
+```
+
+---
+
+## Cost Estimate
+
+| Resource | Monthly Cost |
+|----------|-------------|
+| Lambda (7 functions, ~10K invocations) | ~$1 |
+| API Gateway HTTP API | ~$3 |
+| S3 + CloudFront | ~$5 |
+| Cognito User Pool | ~$0 (free tier) |
+| SSM Parameter Store | ~$1 |
+| Supabase Pro Plan | ~$25 |
+| **Total** | **~$35/month** |
+
 ---
 
 ## Related Documents
@@ -146,3 +240,4 @@ flowchart LR
 - [API: SGS Quote App API Reference](../api/sgs-quote-app-api.md)
 - [ADR-001: Why we chose Supabase over self-hosted PostgreSQL](../adr/adr-001-supabase-vs-self-hosted.md)
 - [ADR-002: Why we chose Lambda over ECS Fargate](../adr/adr-002-lambda-vs-ecs-fargate.md)
+- [OTLP Lambda Tracing Guide](../architecture/otlp-lambda-tracing.md)

@@ -1,6 +1,7 @@
 ---
 title: "Payments — High Error Rate Runbook"
 description: "Response steps when the Payments Service error rate exceeds 5%"
+author: "Prasad Bhavsar"
 ---
 
 > This is an **example** of a filled-in runbook.
@@ -15,9 +16,26 @@ the `PaymentsErrorRate > 5%` CloudWatch alarm.
 
 **Service:** `stellar-payments-api`
 **Owner:** `@team-payments`
+**Author:** `Prasad Bhavsar`
 **On-call rotation:** [PagerDuty — Payments rotation](https://stellar.pagerduty.com/payments)
 **Last tested:** `2025-06-14`
 **Estimated time:** ~15 minutes
+
+---
+
+## Overview
+
+This runbook covers the procedure for diagnosing and resolving high error rates in the Payments Service. The service handles all money movement — card charges, refunds, and payout reconciliation — via Stripe. Errors can originate from the service itself, the database, Stripe, or infrastructure components.
+
+### Common Failure Scenarios
+
+| Scenario | Likelihood | Impact |
+|----------|-----------|--------|
+| Stripe API outage | Medium | All payment operations fail |
+| Database connection issues | Low | Service unavailable |
+| Secrets rotation failure | Low | Authentication errors |
+| OOM / memory exhaustion | Low | Task restarts |
+| Network connectivity issues | Low | Timeouts |
 
 ---
 
@@ -54,6 +72,13 @@ aws cloudwatch get-metric-statistics \
   --period 300 \
   --statistics Average \
   --region ap-south-1
+
+# Check ECS service health
+aws ecs describe-services \
+  --cluster stellar-production \
+  --services stellar-payments-svc \
+  --region ap-south-1 \
+  | jq '.services[0].events' | head -10
 ```
 
 ---
@@ -105,6 +130,12 @@ aws rds describe-db-instances \
   --db-instance-identifier stellar-payments-db \
   --query 'DBInstances[0].DBInstanceStatus' \
   --region ap-south-1
+
+# Check RDS connections
+aws rds describe-db-instances \
+  --db-instance-identifier stellar-payments-db \
+  --query 'DBInstances[0].Endpoint' \
+  --region ap-south-1
 ```
 
 If status is `failing-over` → Multi-AZ failover in progress, wait ~30s and recheck.
@@ -130,6 +161,15 @@ aws ecs wait services-stable \
 ### Step 4c: OOM / task restart loop
 
 ```bash
+# Check task status
+aws ecs describe-tasks \
+  --cluster stellar-production \
+  --tasks $(aws ecs list-tasks --cluster stellar-production --service stellar-payments-svc --region ap-south-1 --query 'taskArns[]' --output text) \
+  --region ap-south-1 \
+  | jq '.tasks[0].containers[0].lastStatus'
+```
+
+```bash
 # Scale up task memory temporarily
 aws ecs update-service \
   --cluster stellar-production \
@@ -143,8 +183,17 @@ Then open a ticket to increase the memory limit in Terraform.
 ### Step 5: Verify recovery
 
 - [ ] Error rate below 1% for 3 consecutive minutes
+- [ ] Test a sample charge via the API:
+  ```bash
+  curl -s -o /dev/null -w "%{http_code}" \
+    -X POST \
+    -H "Content-Type: application/json" \
+    -d '{"order_id":"test-123","amount":100}' \
+    http://stellar-payments.internal/v1/charges
+  ```
 - [ ] Post in `#eng-ops`: "✅ Payments Service recovered. [Brief summary of root cause and action taken]."
 - [ ] Resolve PagerDuty alert
+- [ ] Update ticket with findings
 
 ---
 
@@ -155,6 +204,30 @@ Then open a ticket to increase the memory limit in Terraform.
 | 0–15 min | This runbook + `#eng-ops` |
 | 15–30 min | Page `@on-call-lead` |
 | 30 min+ | Page `@engineering-manager`, draft customer comms |
+
+---
+
+## Post-incident
+
+- [ ] File an incident report within 24 hours
+- [ ] Schedule a blameless post-mortem if P1 or P2
+- [ ] Update this runbook if any step was wrong or unclear
+- [ ] Update `Last tested` date
+
+### Incident Report Template
+
+```markdown
+## Incident Report
+
+**Date:** YYYY-MM-DD
+**Duration:** HH:MM to HH:MM (X minutes)
+**Severity:** P1/P2
+**Services affected:** stellar-payments-api
+**Root cause:** [Summary]
+**Impact:** [Number of failed transactions, customer impact]
+**Resolution:** [Steps taken to resolve]
+**Prevention:** [Action items to prevent recurrence]
+```
 
 ---
 

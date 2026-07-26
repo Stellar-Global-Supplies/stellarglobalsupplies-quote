@@ -44,9 +44,9 @@ jobs:
           echo "deleted=$DELETED"   >> $GITHUB_OUTPUT
           echo "images=$IMAGES"     >> $GITHUB_OUTPUT
 
-          echo "📄 Upserted: $UPSERTED"
-          echo "🗑️  Deleted:  $DELETED"
-          echo "🖼️  Images:   $IMAGES"
+          echo "Upserted: $UPSERTED"
+          echo "Deleted:  $DELETED"
+          echo "Images:   $IMAGES"
 
           if [ -z "$UPSERTED" ] && [ -z "$DELETED" ] && [ -z "$IMAGES" ]; then
             echo "has_changes=false" >> $GITHUB_OUTPUT
@@ -59,6 +59,28 @@ jobs:
         run: |
           set -e
           mkdir -p /tmp/mdx-out
+
+          # Write sanitizer script once
+          cat > /tmp/sanitize.py << 'PYEOF'
+          import sys, re
+
+          with open(sys.argv[1], 'r', encoding='utf-8') as f:
+              content = f.read()
+
+          # Convert HTML comments <!-- ... --> to MDX comments {/* ... */}
+          content = re.sub(
+              r'<!--(.*?)-->',
+              lambda m: '{/*' + m.group(1) + '*/}',
+              content,
+              flags=re.DOTALL
+          )
+
+          # Remove stray <!...> tags that break MDX (e.g. <!DOCTYPE>)
+          content = re.sub(r'<!(?!-)[^>]*>', '', content)
+
+          with open(sys.argv[1], 'w', encoding='utf-8') as f:
+              f.write(content)
+          PYEOF
 
           for src in ${{ steps.changes.outputs.upserted }}; do
             [ -f "$src" ] || continue
@@ -94,17 +116,28 @@ jobs:
               } > "$outfile"
             fi
 
-            echo "✅ Converted: $src → $outfile"
+            # Sanitize HTML comments → MDX comments
+            python3 /tmp/sanitize.py "$outfile"
+            echo "Converted: $src"
           done
 
-      # ── Clone stellar-docs using PAT ─────────────────────────────
       - name: Clone stellar-docs
         if: steps.changes.outputs.has_changes == 'true'
         uses: actions/checkout@v4
         with:
           repository: ${{ env.DOCS_REPO }}
-          token: ${{ secrets.DOCS_PAT }}        # ← org-level PAT, no SSH key needed
+          token: ${{ secrets.DOCS_PAT }}
           path: stellar-docs
+
+      - name: Remove old incorrectly named folders
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          cd stellar-docs
+          # Remove any folder under docs/ that contains spaces (wrong REPO_SECTION values)
+          find docs/ -maxdepth 1 -type d -name "* *" | while read dir; do
+            echo "Removing incorrectly named folder: $dir"
+            git rm -rf "$dir" 2>/dev/null || rm -rf "$dir"
+          done
 
       - name: Copy MDX files into stellar-docs
         if: steps.changes.outputs.has_changes == 'true' && steps.changes.outputs.upserted != ''
@@ -116,7 +149,7 @@ jobs:
             if [ -d "$src_dir" ] && [ "$(ls -A "$src_dir")" ]; then
               mkdir -p "$TARGET_BASE/$subdir"
               cp "$src_dir"/*.mdx "$TARGET_BASE/$subdir/" 2>/dev/null || true
-              echo "📁 Copied $subdir pages"
+              echo "Copied $subdir pages"
             fi
           done
 
@@ -127,7 +160,7 @@ jobs:
             TARGET_IMAGES="stellar-docs/docs/${{ env.REPO_SECTION }}/images"
             mkdir -p "$TARGET_IMAGES"
             cp docs/images/* "$TARGET_IMAGES/" 2>/dev/null || true
-            echo "🖼️  Copied images"
+            echo "Copied images"
           fi
 
       - name: Remove deleted docs from stellar-docs
@@ -142,7 +175,7 @@ jobs:
             target="$TARGET_BASE/$subdir/${fname}.mdx"
             if [ -f "$target" ]; then
               rm "$target"
-              echo "🗑️  Deleted: $target"
+              echo "Deleted: $target"
             fi
           done
 
@@ -155,16 +188,13 @@ jobs:
 
           git add .
           if git diff --staged --quiet; then
-            echo "ℹ️  No effective changes — skipping commit"
+            echo "No effective changes — skipping commit"
           else
             SHORT_SHA="${{ github.sha }}"
             SHORT_SHA="${SHORT_SHA:0:7}"
-            git commit -m "docs(${{ env.REPO_SECTION }}): sync from ${{ github.repository }}@${SHORT_SHA}
-
-            Triggered by: ${{ github.event.head_commit.message }}
-            Author: ${{ github.event.head_commit.author.name }}"
+            git commit -m "docs(${{ env.REPO_SECTION }}): sync from ${{ github.repository }}@${SHORT_SHA}"
             git push origin main
-            echo "✅ Pushed docs to stellar-docs"
+            echo "Pushed docs to stellar-docs"
           fi
 
   # ----------------------------------------------------------------
@@ -201,24 +231,19 @@ jobs:
           ---
 
           **Released:** ${{ steps.meta.outputs.date_human }}
-          **Tag:** [\`${{ steps.meta.outputs.version }}\`](${{ github.event.release.html_url }})
+          **Tag:** [${{ steps.meta.outputs.version }}](${{ github.event.release.html_url }})
           **Prerelease:** ${{ github.event.release.prerelease }}
 
           ---
 
           ${{ github.event.release.body }}
-
-          ---
-
-          *Auto-generated from [GitHub Release](${{ github.event.release.html_url }})*
           MDXEOF
 
-      # ── Clone stellar-docs using PAT ─────────────────────────────
       - name: Clone stellar-docs
         uses: actions/checkout@v4
         with:
           repository: ${{ env.DOCS_REPO }}
-          token: ${{ secrets.DOCS_PAT }}        # ← org-level PAT, no SSH key needed
+          token: ${{ secrets.DOCS_PAT }}
           path: stellar-docs
 
       - name: Copy release MDX to stellar-docs
@@ -239,5 +264,5 @@ jobs:
           else
             git commit -m "docs(${{ env.REPO_SECTION }}): release ${{ steps.meta.outputs.version }}"
             git push origin main
-            echo "✅ Pushed release notes"
+            echo "Pushed release notes"
           fi

@@ -1,6 +1,7 @@
 ---
 title: "SGS Quote App API Reference"
 description: "Endpoint documentation, authentication and request/response examples for the SGS Quote Application"
+author: "Prasad Bhavsar"
 ---
 
 ## Overview
@@ -10,6 +11,7 @@ The SGS Quote App API provides REST endpoints for managing quotes, customers, SK
 **Base URL (production):** `https://api.quote.stellarglobalsupplies.com`
 **Auth method:** Bearer token (JWT from Cognito)
 **Owner:** `@team-sgs-quote`
+**Author:** `Prasad Bhavsar`
 **Last updated:** `2025-07-26`
 
 ---
@@ -24,6 +26,15 @@ curl -H "Authorization: Bearer <your-token>" \
 ```
 
 Tokens are issued by Cognito User Pool. The frontend handles the OAuth flow automatically.
+
+### Token Details
+
+| Property | Value |
+|----------|-------|
+| Token Type | JWT (JSON Web Token) |
+| Issuer | Cognito User Pool (`cognito-idp.us-east-1.amazonaws.com/<pool-id>`) |
+| Expiry | 1 hour (access token), 30 days (refresh token) |
+| Header | `Authorization: Bearer <token>` |
 
 ---
 
@@ -118,6 +129,8 @@ curl -X GET "https://api.quote.stellarglobalsupplies.com/api/quotes?limit=20&off
   }
 ]
 ```
+
+**Possible status values:** `draft`, `sent`, `accepted`, `rejected`
 
 ---
 
@@ -478,8 +491,30 @@ curl -X POST "https://api.quote.stellarglobalsupplies.com/api/email/send" \
 
 ---
 
+## Rate Limiting
+
+API Gateway is configured with the following rate limits:
+
+| Limit | Value |
+|-------|-------|
+| Burst | 100 requests/second |
+| Rate | 50 requests/second |
+
+When exceeded, the API returns `429 Too Many Requests`.
+
+---
+
+## API Changelog
+
+| Date | Change | Author |
+|------|--------|--------|
+| 2025-07-26 | Initial API documentation | Prasad Bhavsar |
+
+---
+
 ## Related
 
 - [Architecture: SGS Quote App](../architecture/sgs-quote-app-architecture.md)
 - [Runbook: High Error Rate](../runbooks/sgs-quote-app-high-error-rate.md)
 - [Infra: SGS Quote App Infrastructure](../infra/sgs-quote-app-infra.md)
+- [OTLP Lambda Tracing Guide](../architecture/otlp-lambda-tracing.md)
