@@ -20,7 +20,7 @@ The SGS Quote App API provides REST endpoints for managing quotes, customers, SK
 
 All requests require a valid JWT in the `Authorization` header:
 
-```bash
+```bash 
 curl -H "Authorization: Bearer <your-token>" \
      https://api.quote.stellarglobalsupplies.com/api/quotes
 ```

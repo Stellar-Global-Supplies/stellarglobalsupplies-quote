@@ -23,7 +23,7 @@ This document covers the AWS infrastructure powering the SGS Quote App — a ser
 us-east-1
 ├── VPC: default VPC
 │
-├── S3: sgs-quote-frontend (static website hosting)
+├── S3: sgs-quote-frontend (static website hosting) 
 │   └── CloudFront: quote.stellarglobalsupplies.com
 │
 ├── API Gateway HTTP API: sgs-quote-api

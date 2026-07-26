@@ -162,4 +162,4 @@ Option C was rejected due to concurrency limitations — Lambda functions can in
 - [Infra: SGS Quote App Infrastructure](../infra/sgs-quote-app-infra.md)
 - [API: SGS Quote App API Reference](../api/sgs-quote-app-api.md)
 - [Supabase Schema](../infrastructure/supabase_schema.sql)
-- [ADR-002: Why we chose Lambda over ECS Fargate](./adr-002-lambda-vs-ecs-fargate.md)
+- [ADR-002: Why we chose Lambda over ECS Fargate](./adr-002-lambda-vs-ecs-fargate.md) 

@@ -26,7 +26,7 @@ This runbook covers the procedure for diagnosing and resolving high error rates 
 | Scenario | Likelihood | Impact |
 |----------|-----------|--------|
 | Supabase database outage or latency | Medium | All API endpoints affected |
-| Lambda timeout due to slow queries | Low | Specific endpoints affected |
+| Lambda timeout due to slow queries | Low | Specific endpoints affected | 
 | SSM parameter missing or rotated | Low | All Lambda invocations fail |
 | SES sending limits exceeded | Low | Email sending fails |
 | Cognito JWT validation issues | Low | Authentication failures |

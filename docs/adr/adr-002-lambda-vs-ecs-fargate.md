@@ -25,7 +25,7 @@ author: "Prasad Bhavsar"
 
 ## Context
 
-The SGS Quote App backend needs to handle HTTP API requests for quote CRUD operations, customer management, SKU search, and email dispatch. The workload is characterised by:
+The SGS Quote App backend needs to handle HTTP API requests for quote CRUD operations, customer  management, SKU search, and email dispatch. The workload is characterised by:
 
 - **Low traffic:** ~1,000 quotes created per month, ~10,000 API requests/month
 - **Bursty usage:** Sales team activity spikes during business hours (9 AM–6 PM IST) with near-zero traffic overnight

@@ -24,7 +24,7 @@ flowchart LR
     Browser -->|API calls| AG[API Gateway]
     AG -->|JWT Auth| Cognito[Cognito User Pool]
     AG -->|routes to| Lambda[Lambda Functions]
-    Lambda -->|REST API| Supabase[(Supabase / PostgreSQL)]
+    Lambda -->|REST API| Supabase[(Supabase / PostgreSQL)] 
     Lambda -->|SMTP| SES[SES Email]
     Lambda -->|OTLP traces| NR[New Relic APM]
     S3 <-->|secrets| SSM[SSM Parameter Store]

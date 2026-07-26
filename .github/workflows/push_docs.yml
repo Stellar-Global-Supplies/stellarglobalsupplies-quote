@@ -67,7 +67,7 @@ jobs:
           with open(sys.argv[1], 'r', encoding='utf-8') as f:
               content = f.read()
 
-          # Convert HTML comments <!-- ... --> to MDX comments {/* ... */}
+          # 1. Convert HTML comments <!-- ... --> to MDX comments {/* ... */}
           content = re.sub(
               r'<!--(.*?)-->',
               lambda m: '{/*' + m.group(1) + '*/}',
@@ -75,8 +75,16 @@ jobs:
               flags=re.DOTALL
           )
 
-          # Remove stray <!...> tags that break MDX (e.g. <!DOCTYPE>)
+          # 2. Remove stray <!...> tags (e.g. <!DOCTYPE>)
           content = re.sub(r'<!(?!-)[^>]*>', '', content)
+
+          # 3. Escape < followed by digit, =, or space (e.g. <5, <=, <500ms)
+          #    These are not valid JSX tags and break the MDX parser
+          content = re.sub(r'<(?=[\d=\s])', r'&lt;', content)
+
+          # 4. Escape > preceded by digit or space when used as comparison
+          #    (e.g. 500> or >= outside code blocks)
+          content = re.sub(r'(?<=[\d\s])>(?=[\s,\.])', r'&gt;', content)
 
           with open(sys.argv[1], 'w', encoding='utf-8') as f:
               f.write(content)
