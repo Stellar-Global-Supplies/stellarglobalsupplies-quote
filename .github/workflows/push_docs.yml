@@ -150,13 +150,13 @@ jobs:
       - name: Copy MDX files into stellar-docs
         if: steps.changes.outputs.has_changes == 'true' && steps.changes.outputs.upserted != ''
         run: |
-          TARGET_BASE="stellar-docs/docs/${{ env.REPO_SECTION }}"
+          TARGET_BASE="stellar-docs/docs"
 
           for subdir in architecture runbooks infra api adr; do
             src_dir="/tmp/mdx-out/$subdir"
             if [ -d "$src_dir" ] && [ "$(ls -A "$src_dir")" ]; then
-              mkdir -p "$TARGET_BASE/$subdir"
-              cp "$src_dir"/*.mdx "$TARGET_BASE/$subdir/" 2>/dev/null || true
+              mkdir -p "$TARGET_BASE/$subdir/${{ env.REPO_SECTION }}"
+              cp "$src_dir"/*.mdx "$TARGET_BASE/$subdir/${{ env.REPO_SECTION }}/" 2>/dev/null || true
               echo "Copied $subdir pages"
             fi
           done
@@ -165,7 +165,7 @@ jobs:
         if: steps.changes.outputs.has_changes == 'true'
         run: |
           if [ -d "docs/images" ] && [ "$(ls -A docs/images 2>/dev/null)" ]; then
-            TARGET_IMAGES="stellar-docs/docs/${{ env.REPO_SECTION }}/images"
+            TARGET_IMAGES="stellar-docs/docs/images/${{ env.REPO_SECTION }}"
             mkdir -p "$TARGET_IMAGES"
             cp docs/images/* "$TARGET_IMAGES/" 2>/dev/null || true
             echo "Copied images"
@@ -174,13 +174,13 @@ jobs:
       - name: Remove deleted docs from stellar-docs
         if: steps.changes.outputs.has_changes == 'true' && steps.changes.outputs.deleted != ''
         run: |
-          TARGET_BASE="stellar-docs/docs/${{ env.REPO_SECTION }}"
+          TARGET_BASE="stellar-docs/docs"
 
           for src in ${{ steps.changes.outputs.deleted }}; do
             rel="${src#docs/}"
             subdir=$(dirname "$rel")
             fname=$(basename "$rel" .md)
-            target="$TARGET_BASE/$subdir/${fname}.mdx"
+            target="$TARGET_BASE/$subdir/${{ env.REPO_SECTION }}/${fname}.mdx"
             if [ -f "$target" ]; then
               rm "$target"
               echo "Deleted: $target"
@@ -256,7 +256,7 @@ jobs:
 
       - name: Copy release MDX to stellar-docs
         run: |
-          TARGET="stellar-docs/docs/${{ env.REPO_SECTION }}/releases"
+          TARGET="stellar-docs/docs/releases/${{ env.REPO_SECTION }}"
           mkdir -p "$TARGET"
           cp /tmp/release/*.mdx "$TARGET/"
 
@@ -266,7 +266,7 @@ jobs:
           git config user.name  "docs-bot"
           git config user.email "docs-bot@stellarglobalsupplies.com"
 
-          git add docs/${{ env.REPO_SECTION }}/releases/
+          git add docs/releases/${{ env.REPO_SECTION }}/
           if git diff --staged --quiet; then
             echo "No changes"
           else
