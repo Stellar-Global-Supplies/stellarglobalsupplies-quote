@@ -6,7 +6,7 @@ author: "Prasad Bhavsar"
 
 ## Overview
 
-This document covers the AWS infrastructure powering the SGS Quote App — a serverless web application using Lambda, API Gateway, S3, CloudFront, and Cognito. All infrastructure is managed via Terraform.
+This document covers the AWS infrastructure powering the SGS Quote App — a serverless web application using Lambda, API Gateway, and Cognito. The frontend is hosted on Vercel. All AWS infrastructure is managed via Terraform.
 
 **Terraform module:** `infrastructure/terraform/`
 **Managed by:** `@team-sgs-quote`
@@ -20,12 +20,10 @@ This document covers the AWS infrastructure powering the SGS Quote App — a ser
 ## Architecture 
 
 ```
+Vercel Edge Network
+└── quote.stellarglobalsupplies.com (React SPA)
+
 us-east-1
-├── VPC: default VPC
-│
-├── S3: sgs-quote-frontend (static website hosting) 
-│   └── CloudFront: quote.stellarglobalsupplies.com
-│
 ├── API Gateway HTTP API: sgs-quote-api
 │   └── JWT Authorizer (Cognito)
 │
@@ -51,37 +49,23 @@ us-east-1
 
 | Resource | Terraform resource | ARN / ID | Notes |
 |----------|--------------------|----------|-------|
-| Frontend S3 Bucket | `aws_s3_bucket.frontend` | `sgs-quote-frontend` | Static website, versioned |
-| CloudFront Distribution | `aws_cloudfront_distribution.cdn` | `E...` | Custom domain, HTTPS only |
+| Frontend | Vercel (external) | `quote.stellarglobalsupplies.com` | Hosted on Vercel, auto-deploys from GitHub |
 | API Gateway | `aws_apigatewayv2_api.main` | `sgs-quote-api` | HTTP API, JWT auth |
 | Cognito User Pool | `aws_cognito_user_pool.main` | `sgs-quote-users` | Email auth, MFA optional |
 | Lambda Functions | `aws_lambda_function.*` | `sgs-quote-app-*` | Python 3.12, 7 functions |
 | SSM Parameters | `aws_ssm_parameter.*` | `/sgs-quote/*` | SecureString for secrets |
-| ACM Certificate | `aws_acm_certificate.cert` | `arn:aws:acm:...` | `us-east-1` for CloudFront |
+| ACM Certificate | `aws_acm_certificate.cert` | `arn:aws:acm:...` | `us-east-1` for API Gateway custom domain |
 
 ### Resource Details
 
-#### S3 Bucket (`sgs-quote-frontend`)
-
-| Property | Value |
-|----------|-------|
-| Bucket Name | `sgs-quote-frontend` |
-| Region | `us-east-1` |
-| Website Hosting | Enabled |
-| Versioning | Enabled |
-| Block Public Access | Block all public access (CloudFront OAI only) |
-| Encryption | SSE-S3 |
-
-#### CloudFront Distribution
+#### Frontend (Vercel)
 
 | Property | Value |
 |----------|-------|
 | Domain | `quote.stellarglobalsupplies.com` |
-| Price Class | PriceClass_100 (US, Europe) |
-| SSL Certificate | ACM `*.stellarglobalsupplies.com` |
-| Default TTL | 86400 seconds (1 day) |
-| Error Pages | 404 → `/index.html` (SPA routing) |
-| OAI | Origin Access Identity for S3 |
+| Hosting | Vercel (Edge Network) |
+| Deployment | Auto-deploys from GitHub on merge to `main` |
+| Framework | React SPA (Vite + TypeScript) |
 
 #### API Gateway
 
@@ -90,7 +74,7 @@ us-east-1
 | Protocol | HTTP API |
 | Custom Domain | `api.quote.stellarglobalsupplies.com` |
 | Authorizer | JWT (Cognito User Pool) |
-| CORS | Enabled for `https://quote.stellarglobalsupplies.com` |
+| CORS | Enabled for `https://quote.stellarglobalsupplies.com` (Vercel) |
 | Throttling | Burst: 100, Rate: 50 requests/second |
 
 #### Cognito User Pool
@@ -238,18 +222,14 @@ terraform apply tfplan
 The GitHub Action `.github/workflows/deploy.yml` runs on every merge to `main`:
 
 1. Install Python dependencies for Lambda
-2. Build frontend (npm install + npm run build)
-3. Sync frontend to S3 + invalidate CloudFront
-4. Zip Lambda code with dependencies
-5. Terraform apply — updates Lambda functions and infrastructure
+2. Zip Lambda code with dependencies
+3. Terraform apply — updates Lambda functions and infrastructure
+
+The frontend is deployed separately by Vercel (auto-deploy from GitHub).
 
 ### Manual deploy commands
 
 ```bash
-# Deploy frontend only
-aws s3 sync frontend/dist/ s3://sgs-quote-frontend/ --delete
-aws cloudfront create-invalidation --distribution-id E... --paths "/*"
-
 # Deploy backend only
 cd backend/lambda
 pip install -r requirements.txt -t .
@@ -282,10 +262,10 @@ terraform state list
 terraform state mv aws_lambda_function.old aws_lambda_function.new
 
 # Import existing resource
-terraform import aws_s3_bucket.frontend sgs-quote-frontend
+terraform import aws_apigatewayv2_api.main sgs-quote-api
 
 # Remove from state (not destroy)
-terraform state rm aws_s3_bucket.old
+terraform state rm aws_lambda_function.old
 ```
 
 ---
@@ -382,17 +362,16 @@ aws ssm delete-parameter \
 |----------|--------------------------|
 | Lambda (7 functions, ~10K invocations/month) | ~$1 |
 | API Gateway HTTP API | ~$3 |
-| S3 + CloudFront | ~$5 |
+| Vercel (Pro plan) | ~$20 |
 | Cognito User Pool | ~$0 (free tier) |
 | SSM Parameter Store | ~$1 |
 | Supabase Pro Plan | ~$25 |
-| **Total estimate** | **~$35/month** |
+| **Total estimate** | **~$50/month** |
 
 Cost alerts are configured at $25/month in AWS Budgets.
 
 ### Cost Optimization Tips
 
-- Reduce CloudFront price class to PriceClass_100 (already configured)
 - Monitor Lambda invocation count and adjust memory if over-provisioned
 - Review Supabase usage monthly to ensure plan is appropriate
 - Set up AWS Budgets alerts at $25, $50, and $100 thresholds

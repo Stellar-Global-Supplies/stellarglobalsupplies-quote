@@ -19,15 +19,14 @@ The SGS Quote App is a serverless web application that enables sales teams at St
 
 ```mermaid
 flowchart LR
-    Browser[Sales Team Browser] -->|HTTPS| CF[CloudFront CDN]
-    CF -->|Static assets| S3[S3 Bucket]
+    Browser[Sales Team Browser] -->|HTTPS| Vercel[Vercel CDN]
     Browser -->|API calls| AG[API Gateway]
     AG -->|JWT Auth| Cognito[Cognito User Pool]
     AG -->|routes to| Lambda[Lambda Functions]
     Lambda -->|REST API| Supabase[(Supabase / PostgreSQL)] 
     Lambda -->|SMTP| SES[SES Email]
     Lambda -->|OTLP traces| NR[New Relic APM]
-    S3 <-->|secrets| SSM[SSM Parameter Store]
+    SSM[SSM Parameter Store] -.->|secrets| Lambda
 ```
 
 ---
@@ -38,8 +37,9 @@ flowchart LR
 
 - **What it is:** Single-page application for quote creation, customer management, and quote lifecycle
 - **Technology:** TypeScript, React 18, Vite, Tailwind CSS
-- **Deployed as:** Static files on S3 + CloudFront CDN
-- **Scales:** Horizontally via CDN — zero capacity management
+- **Hosted on:** Vercel — deploys automatically from GitHub on merge to `main`
+- **Custom domain:** `quote.stellarglobalsupplies.com`
+- **Scales:** Horizontally via Vercel Edge Network — zero capacity management
 - **Repo:** `stellarglobalsupplies/stellarglobalsupplies-quote`
 - **Key features:**
   - Quote editor with real-time tax calculations (IGST/CGST/SGST)
@@ -101,8 +101,7 @@ flowchart LR
 
 | Resource | Type | Region | Notes |
 |----------|------|--------|-------|
-| `sgs-quote-frontend` | S3 Bucket | `us-east-1` | Static website hosting, versioned |
-| `sgs-quote-cdn` | CloudFront | Global | Custom domain `quote.stellarglobalsupplies.com` |
+| Frontend | Vercel | Global (Edge) | Custom domain `quote.stellarglobalsupplies.com`, auto-deploys from GitHub |
 | `sgs-quote-api` | API Gateway HTTP API | `us-east-1` | JWT authorizer, custom domain |
 | `sgs-quote-app` | Lambda Functions (×7) | `us-east-1` | Python 3.12, 128MB–512MB |
 | Supabase DB | PostgreSQL 15 | `us-east-1` (Supabase) | Managed, RLS enabled |
@@ -113,13 +112,22 @@ flowchart LR
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
+│                      Vercel Edge Network                      │
+│                quote.stellarglobalsupplies.com               │
+│                      ┌─────────────┐                         │
+│                      │   Browser   │                         │
+│                      └──────┬──────┘                         │
+│                             │                                │
+│                      ┌──────▼──────┐                         │
+│                      │   Vercel    │                         │
+│                      │    CDN      │                         │
+│                      └─────────────┘                         │
+└─────────────────────────────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────┐
 │                      AWS Cloud (us-east-1)                   │
 │                                                             │
-│  ┌─────────────┐    ┌──────────────┐    ┌───────────────┐  │
-│  │   Browser    │───▶│  CloudFront  │───▶│  S3 Frontend  │  │
-│  └─────────────┘    └──────────────┘    └───────────────┘  │
-│        │                                                     │
-│        ▼                                                     │
 │  ┌──────────────────────────────────────────────────┐       │
 │  │              API Gateway HTTP API                  │       │
 │  │         JWT Authorizer (Cognito)                  │       │
@@ -197,7 +205,7 @@ All Lambda functions share common modules:
 
 - **CI/CD:** GitHub Actions → Terraform apply → Lambda zip deploy
 - **Deploy frequency:** On every merge to `main`
-- **Frontend:** Build static assets → sync to S3 → invalidate CloudFront
+- **Frontend:** Auto-deploys via Vercel on merge to `main` (GitHub integration)
 - **Backend:** Install Python deps → zip Lambda code → Terraform updates function
 - **Rollback:** Revert PR and redeploy, or use previous Lambda version
 
@@ -206,15 +214,12 @@ All Lambda functions share common modules:
 ```
 Git Push / PR Merge to main
         │
-        ▼
-GitHub Action: deploy.yml
-        │
-        ├── Install Python deps (pip install -t backend/lambda/)
-        ├── Build frontend (npm run build)
-        ├── Sync frontend to S3
-        ├── Invalidate CloudFront cache
-        ├── Zip Lambda code + deps
-        └── Terraform apply (updates Lambda + infra)
+        ├── Vercel: Auto-deploys frontend build directly
+        └── GitHub Action: deploy.yml
+                │
+                ├── Install Python deps (pip install -t backend/lambda/)
+                ├── Zip Lambda code + deps
+                └── Terraform apply (updates Lambda + infra)
 ```
 
 ---
@@ -225,11 +230,11 @@ GitHub Action: deploy.yml
 |----------|-------------|
 | Lambda (7 functions, ~10K invocations) | ~$1 |
 | API Gateway HTTP API | ~$3 |
-| S3 + CloudFront | ~$5 |
+| Vercel (Pro plan) | ~$20 |
 | Cognito User Pool | ~$0 (free tier) |
 | SSM Parameter Store | ~$1 |
 | Supabase Pro Plan | ~$25 |
-| **Total** | **~$35/month** |
+| **Total** | **~$50/month** |
 
 ---
 
